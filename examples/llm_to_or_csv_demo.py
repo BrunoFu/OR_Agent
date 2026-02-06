@@ -51,14 +51,9 @@ def _safe_print(text: str) -> None:
 
 
 class GPT5MiniAgent(Agent):
-    """Lightweight agent wrapper that uses the OpenAI Responses API with gpt-5-mini."""
+    """Agent wrapper using OpenRouter API with openai/gpt-5-mini (chat completions)."""
 
-    def __init__(
-        self,
-        system_prompt: str,
-        reasoning_effort: str = "low",
-        text_verbosity: str = "low",
-    ):
+    def __init__(self, system_prompt: str):
         super().__init__()
         try:
             from openai import OpenAI
@@ -67,35 +62,54 @@ class GPT5MiniAgent(Agent):
                 "OpenAI package is required for GPT5MiniAgent. Install it with: pip install openai"
             ) from exc
 
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
-            raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
+            raise ValueError(
+                "OpenRouter API key not found. Please set the OPENROUTER_API_KEY environment variable."
+            )
 
-        self.model_name = "gpt-5-mini"
+        self.model_name = "openai/gpt-5-mini"
         self.system_prompt = system_prompt
-        self.reasoning_effort = reasoning_effort
-        self.text_verbosity = text_verbosity
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+            timeout=180.0,
+        )
 
     def __call__(self, observation: str) -> str:
         if not isinstance(observation, str):
             raise ValueError(f"Observation must be a string. Received type: {type(observation)}")
 
-        request_payload = {
-            "model": self.model_name,
-            "input": [
-                {"role": "system", "content": [{"type": "input_text", "text": self.system_prompt}]},
-                {"role": "user", "content": [{"type": "input_text", "text": observation}]},
-            ],
-        }
-
-        if self.reasoning_effort:
-            request_payload["reasoning"] = {"effort": self.reasoning_effort}
-        if self.text_verbosity:
-            request_payload["text"] = {"verbosity": self.text_verbosity}
-
-        response = self.client.responses.create(**request_payload)
-        return response.output_text.strip()
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": observation},
+        ]
+        import time
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=0,
+                )
+                return response.choices[0].message.content.strip()
+            except Exception as e:
+                last_error = e
+                import json as _json
+                is_retriable = (
+                    "timeout" in str(e).lower()
+                    or "timed out" in str(e).lower()
+                    or "ConnectTimeout" in type(e).__name__
+                    or isinstance(e, _json.JSONDecodeError)
+                )
+                if is_retriable and attempt < max_retries - 1:
+                    delay = 5 * (attempt + 1)
+                    time.sleep(delay)
+                    continue
+                raise
+        raise last_error
 
 
 def inject_carry_over_insights(observation: str, insights: Dict[int, str]) -> str:
@@ -852,9 +866,9 @@ def main():
     args = parser.parse_args()
     
     # Check API key
-    if not os.getenv("OPENAI_API_KEY"):
-        print("Error: Please set your OPENAI_API_KEY environment variable")
-        print('Example: export OPENAI_API_KEY="sk-your-key-here"')
+    if not os.getenv("OPENROUTER_API_KEY"):
+        print("Error: Please set your OPENROUTER_API_KEY environment variable")
+        print('Example: set OPENROUTER_API_KEY=sk-or-v1-your-key-here  (Windows) or export OPENROUTER_API_KEY="sk-or-v1-your-key-here" (Linux/Mac)')
         sys.exit(1)
     
     # Create environment

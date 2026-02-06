@@ -618,52 +618,33 @@ class SimulationSession:
             if hasattr(agent, 'base_agent'):
                 base_agent = agent.base_agent
             
-            # Try true streaming if available
-            if hasattr(base_agent, 'client') and hasattr(base_agent.client, 'responses'):
+            # Try OpenRouter/OpenAI chat completions streaming
+            if (hasattr(base_agent, "client") and hasattr(base_agent, "model_name")
+                    and hasattr(base_agent, "system_prompt") and hasattr(base_agent.client, "chat")):
                 try:
-                    request_payload = {
-                        "model": base_agent.model_name,
-                        "input": [
-                            {"role": "system", "content": [{"type": "input_text", "text": base_agent.system_prompt}]},
-                            {"role": "user", "content": [{"type": "input_text", "text": observation}]},
-                        ],
-                    }
-                    if getattr(base_agent, "reasoning_effort", None):
-                        request_payload["reasoning"] = {"effort": base_agent.reasoning_effort}
-                    if getattr(base_agent, "text_verbosity", None):
-                        request_payload["text"] = {"verbosity": base_agent.text_verbosity}
-
                     import time
+                    messages = [
+                        {"role": "system", "content": base_agent.system_prompt},
+                        {"role": "user", "content": observation},
+                    ]
                     full_text = ""
-                    with base_agent.client.responses.stream(**request_payload) as stream:
-                        for event in stream:
-                            event_type = getattr(event, "type", None)
-                            if event_type == "response.output_text.delta":
-                                chunk_text = ""
-                                delta_obj = getattr(event, "delta", None)
-                                if isinstance(delta_obj, str):
-                                    chunk_text = delta_obj
-                                elif delta_obj is not None:
-                                    if hasattr(delta_obj, "text"):
-                                        chunk_text = delta_obj.text
-                                    elif hasattr(delta_obj, "content"):
-                                        chunk_text = delta_obj.content
-                                if chunk_text:
-                                    full_text += chunk_text
-                                    with self._streaming_lock:
-                                        self._streaming_text = full_text
-                            elif event_type == "response.completed":
-                                break
-                            time.sleep(0.01)
-                        
-                        final_response = stream.get_final_response()
-                        if hasattr(final_response, "output_text"):
-                            result = final_response.output_text
-                        else:
-                            result = full_text
-                        return result
+                    stream = base_agent.client.chat.completions.create(
+                        model=base_agent.model_name,
+                        messages=messages,
+                        temperature=0,
+                        stream=True,
+                    )
+                    for chunk in stream:
+                        if chunk.choices and len(chunk.choices) > 0:
+                            delta = chunk.choices[0].delta
+                            if hasattr(delta, "content") and delta.content:
+                                full_text += delta.content
+                                with self._streaming_lock:
+                                    self._streaming_text = full_text
+                        time.sleep(0.01)
+                    if full_text:
+                        return full_text.strip()
                 except Exception as stream_error:
-                    # Fall back to non-streaming
                     pass
             
             # Fallback to non-streaming call
@@ -789,83 +770,51 @@ class SimulationSession:
             if hasattr(agent, 'base_agent'):
                 base_agent = agent.base_agent
             
-            # Debug: print agent type
-            print(f"DEBUG: Agent type: {type(agent)}, Base agent type: {type(base_agent)}")
-            print(f"DEBUG: Base agent has client: {hasattr(base_agent, 'client')}")
-            if hasattr(base_agent, 'client'):
-                print(f"DEBUG: Base agent client has responses: {hasattr(base_agent.client, 'responses')}")
-            
-            # Check if base agent is GPT5MiniAgent and supports streaming
-            if hasattr(base_agent, 'client') and hasattr(base_agent.client, 'responses'):
-                # Try true streaming using OpenAI Responses streaming interface
+            # Check if base agent supports OpenRouter/OpenAI chat completions streaming
+            if (hasattr(base_agent, "client") and hasattr(base_agent, "model_name")
+                    and hasattr(base_agent, "system_prompt") and hasattr(base_agent.client, "chat")):
                 try:
-                    request_payload = {
-                        "model": base_agent.model_name,
-                        "input": [
-                            {"role": "system", "content": [{"type": "input_text", "text": base_agent.system_prompt}]},
-                            {"role": "user", "content": [{"type": "input_text", "text": observation}]},
-                        ],
-                    }
-                    if getattr(base_agent, "reasoning_effort", None):
-                        request_payload["reasoning"] = {"effort": base_agent.reasoning_effort}
-                    if getattr(base_agent, "text_verbosity", None):
-                        request_payload["text"] = {"verbosity": base_agent.text_verbosity}
-
                     import time
-
-                    print("DEBUG: Attempting streaming call via responses.stream")
+                    messages = [
+                        {"role": "system", "content": base_agent.system_prompt},
+                        {"role": "user", "content": observation},
+                    ]
                     full_text = ""
-
-                    # Use streaming context manager so we can get final response afterwards
-                    with base_agent.client.responses.stream(**request_payload) as stream:
-                        for event in stream:
-                            event_type = getattr(event, "type", None)
-                            if event_type == "response.output_text.delta":
-                                # Extract delta text safely
-                                chunk_text = ""
-                                delta_obj = getattr(event, "delta", None)
-                                if isinstance(delta_obj, str):
-                                    chunk_text = delta_obj
-                                elif delta_obj is not None:
-                                    # delta may expose .text or .content depending on SDK version
-                                    if hasattr(delta_obj, "text"):
-                                        chunk_text = delta_obj.text
-                                    elif hasattr(delta_obj, "content"):
-                                        chunk_text = delta_obj.content
-                                if chunk_text:
-                                    full_text += chunk_text
-                                    with self._streaming_lock:
-                                        self._streaming_text = full_text
-                            elif event_type == "response.completed":
-                                break
-                            # Avoid tight loop to give time for frontend polling
-                            time.sleep(0.01)
-
-                        # After stream ends, grab the final response from SDK helper
-                        final_response = stream.get_final_response()
-                        if hasattr(final_response, "output_text"):
-                            final_text = final_response.output_text
-                            if isinstance(final_text, list):
-                                final_text = "".join(final_text)
-                            if isinstance(final_text, str):
-                                full_text = final_text or full_text
-
+                    stream = base_agent.client.chat.completions.create(
+                        model=base_agent.model_name,
+                        messages=messages,
+                        temperature=0,
+                        stream=True,
+                    )
+                    for chunk in stream:
+                        if chunk.choices and len(chunk.choices) > 0:
+                            delta = chunk.choices[0].delta
+                            if hasattr(delta, "content") and delta.content:
+                                full_text += delta.content
+                                with self._streaming_lock:
+                                    self._streaming_text = full_text
+                        time.sleep(0.01)
                     if full_text:
                         return full_text.strip()
-
-                except Exception as stream_error:
-                    print(f"DEBUG: Streaming attempt failed ({type(stream_error).__name__}): {stream_error}")
-                    # Fall back to non-streaming call below
+                except Exception:
+                    pass
 
                 # Fallback to non-streaming call
                 try:
-                    response = base_agent.client.responses.create(**request_payload)
-                    result = response.output_text.strip() if hasattr(response, 'output_text') else str(response).strip()
+                    messages = [
+                        {"role": "system", "content": base_agent.system_prompt},
+                        {"role": "user", "content": observation},
+                    ]
+                    response = base_agent.client.chat.completions.create(
+                        model=base_agent.model_name,
+                        messages=messages,
+                        temperature=0,
+                    )
+                    result = response.choices[0].message.content.strip()
                     with self._streaming_lock:
                         self._streaming_text = result
                     return result
                 except Exception as e:
-                    print(f"DEBUG: Non-streaming call failed ({type(e).__name__}): {e}")
                     raise
             else:
                 # Regular agent call - simulate streaming by updating text incrementally after call completes

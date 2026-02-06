@@ -47,7 +47,7 @@ The backend reads these environment variables (load them via `.env` or OS env va
 - `SUPABASE_URL` – Supabase project URL.
 - `SUPABASE_SERVICE_ROLE_KEY` – service role key.
 - `SUPABASE_ANON_KEY` – public anon key (used to feed `/config.js`).
-- `OPENAI_API_KEY` – OpenAI key for the VM agent.
+- `OPENROUTER_API_KEY` – OpenRouter API key for the VM agent (uses openai/gpt-5-mini).
 
 You can create a `.env` next to `app.py` (or export the variables in your shell), then launch the
 fullstack app with:
@@ -82,7 +82,7 @@ Upon completion the backend writes a row in `game_runs` containing the transcrip
 
 ## Notes & Testing Tips
 
-- Ensure your OpenAI API key is set; the demo uses `gpt-4o-mini`.
+- Ensure your OpenRouter API key is set; the demo uses `openai/gpt-5-mini` via OpenRouter.
 - Supabase JWT verification pulls JWKS from `SUPABASE_URL/auth/v1/keys`. Make sure the backend has
   outbound network access.
 - For quick testing without RLS, you can run the backend with a mocked `get_auth_context` that
