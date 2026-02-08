@@ -27,6 +27,7 @@ import subprocess
 import re
 import json
 import argparse
+import multiprocessing
 from pathlib import Path
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait, FIRST_COMPLETED
@@ -651,6 +652,13 @@ def benchmark_all(promised_lead_time: int, instance_dir: str, max_periods: int =
 
 
 if __name__ == "__main__":
+    # Fix for ProcessPoolExecutor issues - use 'spawn' instead of 'fork'
+    # This prevents hanging and "Broken pipe" errors with multiprocessing
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass  # Already set
+
     parser = argparse.ArgumentParser(
         description='Benchmark all strategies (or, llm, llm_to_or, or_to_llm, perfect_score)',
         formatter_class=argparse.RawDescriptionHelpFormatter,

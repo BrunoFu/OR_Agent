@@ -24,10 +24,18 @@ import os
 import sys
 import json
 import argparse
+import multiprocessing
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import traceback
+
+# Fix for nested ProcessPoolExecutor issues - use 'spawn' instead of 'fork'
+# This prevents "Broken pipe" errors when ProcessPoolExecutor is used within ProcessPoolExecutor
+try:
+    multiprocessing.set_start_method('spawn', force=True)
+except RuntimeError:
+    pass  # Already set
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Monitor all running batch benchmarks and display progress.
 """
@@ -6,39 +7,38 @@ import re
 import time
 from pathlib import Path
 from datetime import datetime
+import glob
 
-# Task IDs and their descriptions
-TASKS = {
-    'b1b8931': ('Batch 1', 'Synthetic L=0', 240),
-    'bc9815e': ('Batch 2', 'Synthetic L=4', 240),
-    'baf7cdb': ('Batch 3', 'Synthetic L=stochastic', 240),
-    'bf4fa20': ('Batch 4', 'Real L=0', 200),
-    'bccd28d': ('Batch 5', 'Real L=4', 200),
-    'b82389a': ('Batch 6', 'Real L=stochastic', 200),
-}
+# Batch configurations
+BATCHES = [
+    ('Batch 1', 'Synthetic L=0', 'examples/benchmark/synthetic_trajectory/lead_time_0', 240),
+    ('Batch 2', 'Synthetic L=4', 'examples/benchmark/synthetic_trajectory/lead_time_4', 240),
+    ('Batch 3', 'Synthetic L=stochastic', 'examples/benchmark/synthetic_trajectory/lead_time_stochastic', 240),
+    ('Batch 4', 'Real L=0', 'examples/benchmark/real_trajectory/lead_time_0', 200),
+    ('Batch 5', 'Real L=4', 'examples/benchmark/real_trajectory/lead_time_4', 200),
+    ('Batch 6', 'Real L=stochastic', 'examples/benchmark/real_trajectory/lead_time_stochastic', 200),
+]
 
-OUTPUT_DIR = Path('/tmp/claude-578122960/-shared-share-malatown/tasks')
-
-def extract_progress(output_file):
-    """Extract progress information from output file."""
-    if not output_file.exists():
+def extract_progress_from_log(log_file):
+    """Extract progress information from batch log file."""
+    if not log_file.exists():
         return None
 
     try:
-        content = output_file.read_text()
+        content = log_file.read_text()
 
         # Extract key metrics
+        # Try both formats: old format from monitor and new format from batch runner
         total_found = re.search(r'Total instances found: (\d+)', content)
         skipped = re.search(r'Already completed \(skipped\): (\d+)', content)
-        to_run = re.search(r'Instances to run: (\d+)', content)
+        to_run = re.search(r'Instances to (?:run|process): (\d+)', content)
 
         # Count completed instances from log messages
-        completed_matches = re.findall(r'\[(\d+)/(\d+)\] SUCCESS', content)
+        completed_matches = re.findall(r'\[\d+/\d+\] SUCCESS', content)
         completed_count = len(completed_matches)
-        total_tasks = int(completed_matches[-1][1]) if completed_matches else 0
 
         # Count failures
-        failed_matches = re.findall(r'\[(\d+)/(\d+)\] FAILED', content)
+        failed_matches = re.findall(r'\[\d+/\d+\] FAILED', content)
         failed_count = len(failed_matches)
 
         # Check if batch is complete
@@ -50,16 +50,23 @@ def extract_progress(output_file):
             'to_run': int(to_run.group(1)) if to_run else 0,
             'completed': completed_count,
             'failed': failed_count,
-            'total_tasks': total_tasks,
             'batch_complete': batch_complete,
         }
     except Exception as e:
         return {'error': str(e)}
 
-def format_progress_bar(completed, total, width=30):
+def find_latest_batch_log(batch_dir):
+    """Find the most recent batch_log file in the directory."""
+    log_files = glob.glob(f"{batch_dir}/batch_log_*.txt")
+    if not log_files:
+        return None
+    # Return the most recently modified log file
+    return max(log_files, key=lambda x: Path(x).stat().st_mtime)
+
+def format_progress_bar(completed, total, width=40):
     """Create a text progress bar."""
     if total == 0:
-        return '[' + ' ' * width + '] 0%'
+        return '[' + '░' * width + '] 0.0%'
 
     percent = completed / total
     filled = int(width * percent)
@@ -77,9 +84,16 @@ def monitor_once():
     total_failed = 0
     all_complete = True
 
-    for task_id, (batch_name, description, expected_instances) in TASKS.items():
-        output_file = OUTPUT_DIR / f'{task_id}.output'
-        progress = extract_progress(output_file)
+    for batch_name, description, batch_dir, expected_instances in BATCHES:
+        log_file = find_latest_batch_log(batch_dir)
+
+        if log_file is None:
+            print(f"\n{batch_name}: {description}")
+            print(f"  ⏳ No batch log found - not started yet")
+            all_complete = False
+            continue
+
+        progress = extract_progress_from_log(Path(log_file))
 
         if progress is None:
             print(f"\n{batch_name}: {description}")
