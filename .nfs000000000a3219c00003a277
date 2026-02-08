@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Quick status checker - shows completion counts
+
+echo "╔════════════════════════════════════════════════════════════════════╗"
+echo "║         OR-Agent Benchmark Status - Quick Summary                  ║"
+echo "╚════════════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Count completed instances in each batch
+echo "📊 Completion Status:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+for dir in "examples/benchmark/synthetic_trajectory/lead_time_0" \
+           "examples/benchmark/synthetic_trajectory/lead_time_4" \
+           "examples/benchmark/synthetic_trajectory/lead_time_stochastic" \
+           "examples/benchmark/real_trajectory/lead_time_0" \
+           "examples/benchmark/real_trajectory/lead_time_4" \
+           "examples/benchmark/real_trajectory/lead_time_stochastic"; do
+
+    total=$(find "$dir" -name "test.csv" 2>/dev/null | wc -l)
+    completed=$(find "$dir" -name "benchmark_results.json" 2>/dev/null | wc -l)
+    remaining=$((total - completed))
+
+    # Calculate percentage
+    if [ $total -gt 0 ]; then
+        pct=$((completed * 100 / total))
+    else
+        pct=0
+    fi
+
+    # Determine batch name
+    batch_name="$(basename $(dirname $dir))/$(basename $dir)"
+
+    # Status indicator
+    if [ $completed -eq $total ]; then
+        status="✅ DONE"
+    elif [ $completed -gt 0 ]; then
+        status="🔄 RUNNING"
+    else
+        status="🔄 RUNNING"
+    fi
+
+    printf "%-50s %s [%3d%%] %4d/%4d (-%d remaining)\n" \
+        "$batch_name" "$status" "$pct" "$completed" "$total" "$remaining"
+done
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Calculate totals
+total_all=0
+completed_all=0
+for dir in "examples/benchmark/synthetic_trajectory/lead_time_0" \
+           "examples/benchmark/synthetic_trajectory/lead_time_4" \
+           "examples/benchmark/synthetic_trajectory/lead_time_stochastic" \
+           "examples/benchmark/real_trajectory/lead_time_0" \
+           "examples/benchmark/real_trajectory/lead_time_4" \
+           "examples/benchmark/real_trajectory/lead_time_stochastic"; do
+    total=$(find "$dir" -name "test.csv" 2>/dev/null | wc -l)
+    completed=$(find "$dir" -name "benchmark_results.json" 2>/dev/null | wc -l)
+    total_all=$((total_all + total))
+    completed_all=$((completed_all + completed))
+done
+
+remaining_all=$((total_all - completed_all))
+pct_all=$((completed_all * 100 / total_all))
+
+echo ""
+echo "📈 Overall Progress:"
+echo "   Completed: $completed_all / $total_all instances ($pct_all%)"
+echo "   Remaining: $remaining_all instances"
+echo ""
+
+# Check tmux sessions
+echo "🖥️  Tmux Sessions:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+tmux list-sessions 2>&1 | grep -E "synthetic-|real-" || echo "   No active sessions"
+echo ""
+
+# Check for recent completions in logs
+echo "📝 Recent Activity (last 5 completed):"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+for logfile in $(find examples/benchmark -name "batch_log_*.txt" -type f -mmin -60 2>/dev/null); do
+    grep "SUCCESS" "$logfile" 2>/dev/null | tail -5
+done | tail -5 || echo "   (Sessions just started, no completions yet)"
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Last updated: $(date '+%Y-%m-%d %H:%M:%S')"
+echo ""
+echo "Commands:"
+echo "  • Watch this status: watch -n 30 ./quick_status.sh"
+echo "  • Attach to session: tmux attach-session -t <name>"
+echo "  • Full status: ./check_benchmark_status.sh"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
