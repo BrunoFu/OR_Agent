@@ -1,13 +1,13 @@
-[Timestamp: 2026-02-07 23:24:16]
+[Timestamp: 2026-02-09 03:19:58]
 [Script: llm_to_or]
-[Instance: D:\TextArena\examples\benchmark\synthetic_trajectory\lead_time_4\p03_mean_decrease\v1_100to50\r2_high]
+[Instance: /shared/share_malatown/OR-Agent-GPT5mini-benchmark/examples/benchmark/synthetic_trajectory/lead_time_4/p03_mean_decrease/v1_100to50/r2_high]
 
 Using OpenRouter model: openai/gpt-5-mini
 Loaded CSV with 50 periods of demand data
 Detected 1 items: ['chips(Regular)']
 Date range: Period_1 to Period_50
 
-Using initial samples from train.csv: D:\TextArena\examples\benchmark\synthetic_trajectory\lead_time_4\p03_mean_decrease\v1_100to50\r2_high\train.csv
+Using initial samples from train.csv: /shared/share_malatown/OR-Agent-GPT5mini-benchmark/examples/benchmark/synthetic_trajectory/lead_time_4/p03_mean_decrease/v1_100to50/r2_high/train.csv
   Samples: [('Period_1', 118), ('Period_2', 124), ('Period_3', 116), ('Period_4', 96), ('Period_5', 91)]
   Mean: 109.0, Count: 5
 Promised lead time (shown to LLM): 4 periods
@@ -17,7 +17,7 @@ Running full CSV horizon: 50 periods
 Period 1 (Period_1) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_1 start. Demand history for chips(Regular) shows samples [118,124,116,96,91] (mean ~109). On-hand=0, in-transit=0, no concluded arrivals to infer actual lead time; promised lead time (4) should be used. Use default L to let backend assume promised lead time, and default mu_hat/sigma_hat so base-stock is computed from all available samples (covers (1+L) review+lead demand). This balances service level vs holding cost given limited/complete historical data and no evidence of lead-time shifts or demand regime changes.
+Period_1 start. Historical demand samples (Periods 1-5) mean = 109.0 units; no on-hand or in-transit inventory and no concluded arrivals to infer lead time. Promised lead time (4) will be used. Use default mu_hat and sigma_hat so backend computes (1+L)*mean and sqrt(1+L)*std from full sample set (captures observed demand variability). This avoids overreacting to limited data while providing (L+1)-period coverage; with zero pipeline we rely on the OR engine's capped ordering to balance service level vs holding cost.
 
 Carry-over insight: (empty)
 
@@ -61,7 +61,7 @@ Daily Reward (R_t): $0.00
 Period 2 (Period_2) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_2: observed on-hand=0, in-transit=133. History: Period_1 order 133 has not concluded (arrived=0) \u2014 within promised lead time so cannot declare loss. Demand history samples: [118,124,116,96,91] (mean=109). Promised lead time remains the best prior (no concluded lead-time evidence), so set L to default. Use default mu_hat and sigma_hat (backend will compute (1+L)\xd7mean and sqrt(1+L)\xd7std across all samples) to balance service level vs holding cost while the outstanding shipment is pending. This keeps ordering policy conservative until actual lead-time is observed in a conclude message.
+Period 2 start. On-hand=0, in-transit=133 (order placed P1); Period 1 conclude shows arrived=0 which is expected given promised lead time=4 \u2014 no concluded arrivals to infer a shorter/longer lead time or lost shipment. Demand history available but no sustained changepoint evidence. Therefore use default lead time (promised) and default demand/volatility calculations so OR backend's (1+L)-coverage remains consistent with its formula. This balances service level (use full (1+L) coverage) while avoiding manual adjustments for unconfirmed lead-time or demand shifts.
 
 Carry-over insight: (empty)
 
@@ -105,7 +105,7 @@ Daily Reward (R_t): $0.00
 Period 3 (Period_3) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_3: on-hand=0, in-transit=266 (matches two placed orders of 133 each) and no concluded arrivals yet. Promised lead time is 4; cannot confirm any lead-time change because no concluded arrivals indicating actual lead time. Demand history (periods 1\u20135) mean=109 units/period. To be conservative and avoid mis-specifying lead time, use default lead time (promised=4). Use default demand estimates so the OR backend computes (1+L)\xd7mean and volatility from full sample set, which balances service level against holding cost given limited evidence of regime change. No explicit adjustments for missing shipments now; monitor for concluded arrivals to revise L if shipments remain unconfirmed.
+Period_3: on-hand=0, in-transit=266 (orders from P1+P2), no concluded arrivals yet so no evidence lead time changed or shipments lost. Promised L=4 retained. Use default demand estimates (1+L)\xd7mean of all samples and default volatility; this lets the OR engine apply its base-stock calculation while avoiding premature adjustments based on unsettled pipeline.
 
 Carry-over insight: (empty)
 
@@ -149,7 +149,7 @@ Daily Reward (R_t): $0.00
 Period 4 (Period_4) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_4: on-hand=0, in-transit=397 (matches orders placed P1-3). Promised lead time=4 and no concluded arrivals yet, so no evidence actual lead time differs. Demand history (five samples) shows mean ~109 units/period; with L=4 we keep default settings so OR backend computes (1+L)*mean and sqrt(1+L)*std from all samples. Using default L/mu/sigma keeps the policy aligned with promised lead time and historical demand while avoiding premature adjustments for shipments still within the expected lead time.
+Period_4 decision. Observed demand history P1-P3: 118,124,116 (env also lists P4=96,P5=91 but only P1-P3 concluded). On-hand=0, In-transit=397 (matches orders placed in P1-P3); no concluded arrivals yet so no confirmed lead-time change and no shipments overdue beyond promised+3. Use default lead time (promised L=4) and default demand/volatility estimators so OR backend computes mu_hat = (1+L)\xd7mean(all samples) and sigma_hat = sqrt(1+L)\xd7std(all samples). This avoids over-reacting to unconfirmed delays while letting OR cap orders using its cap formula; monitor concludes for lost-shipment signals to adjust in future periods.
 
 Carry-over insight: (empty)
 
@@ -193,7 +193,7 @@ Daily Reward (R_t): $0.00
 Period 5 (Period_5) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_5: on-hand=0, in-transit=526 (sum of prior orders). No concluded arrivals for any prior orders => cannot infer actual lead time; shipments are still in-transit. Use promised lead time (default). Demand history (Periods 1-5) mean=109; with promised L=4 the backend default (1+L)\xd7mean gives the appropriate review+lead forecast while default volatility uses all samples. These defaults balance service level given high profit ($19) vs low holding cost ($1) and avoid overreacting to unconfirmed delays.
+Period_5: Promised lead time=4. On-hand=0, In-transit=526 which equals orders from Periods1-4 (133+133+131+129). These orders are not yet past promised+3, so not flagged lost; expect arrivals to begin during this period and be visible in concludes later. Historical demand samples (118,124,116,96,91) show no sustained regime shift. Use default lead time and default demand estimates so OR backend's (1+L) coverage is applied correctly and pipeline is not double-counted.
 
 Carry-over insight: (empty)
 
@@ -237,9 +237,9 @@ Daily Reward (R_t): $2307.00
 Period 6 (Period_6) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_6: on-hand=11, in-transit=519. Historical demand samples (P1-5): [118,124,116,96,91], mean=109. Observed concluded arrival: Period_5 shows order from Period_1 arrived with lead_time=4 -> confirm actual lead time=4. Large pipeline exists but arrivals are delayed by promised lead time; to be conservative use calculated lead time based on observed data. Set L by calculate to capture observed lead time. Use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std across all samples, leveraging full history given no sustained demand regime change. These settings balance service level (high pipeline, confirmed L=4) against holding cost by relying on backend's capped policy.
+Period_6 start. One concluded arrival: Period_1 order arrived in Period_5 => observed lead time = 4, matching promised. On-hand=11, In-transit=519 (large pipeline but many recent orders still within promised window). No sustained demand regime shift in last 5 periods (demands: 83,108,107,167,122 are noisy). Choose L by calculating observed lead times to confirm actual lead time; use default mu_hat and sigma_hat so OR backend applies (1+L)\xd7mean and sqrt(1+L)\xd7std across all samples, preserving backend's coverage for (1+L) periods and avoiding over-adjustment given limited lead-time evidence. This balances service level (confirmed L=4) against holding cost.
 
-Carry-over insight: Lead time confirmed as 4 periods (observed: order placed P1 arrived P5, lead_time=4)
+Carry-over insight: Lead time confirmed as 4 periods (Period_1 order placed P1 arrived P5, observed lead_time=4).
 
 ======================================================================
 
@@ -281,7 +281,7 @@ Daily Reward (R_t): $1316.00
 Period 7 (Period_7) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_7 decision. Historical demand samples (Periods 1-5) have mean=109 units/period. Carry-over confirms actual lead time = 4. Current on-hand 71 + in-transit 508 = 579 units, which exceeds (1+L)*mean demand = 5*109 = 545, so pipeline covers the review+lead horizon; no evidence of new sustained regime shift. Use default lead time (promised 4) and default demand/volatility calculations so backend applies (1+L)*mean and sqrt(1+L)*std. This avoids overreacting to transient noise while respecting confirmed lead time and limits holding cost exposure.
+Period_7 decision. Recent demand samples (Periods 1-5) have mean=109 u/period and no sustained demand shift detected. Carry-over confirms actual lead time = 4 (observed orders from P1->P5 and P2->P6). Current on-hand=71, in-transit=508 (in-transit includes many recent orders arriving on the 4-period cadence; no shipments flagged lost). Use promised/confirmed lead time so OR's (1+L) coverage is appropriate. Choose default demand estimates so backend computes mu_hat=(1+L)*mean(all samples) and sigma_hat accordingly; this balances service level and holding cost given stable demand and confirmed L=4.
 
 Carry-over insight: (empty)
 
@@ -325,7 +325,7 @@ Daily Reward (R_t): $2598.00
 Period 8 (Period_8) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_8 update: confirmed actual lead time = 4 (from conclude messages). Current on-hand=62, in-transit=439 \u2192 total pipeline=501. Historical demand samples (used by default stats) have mean=109 per period \u2192 (1+L)=5 => expected 5-period demand \u2248545, so pipeline slightly short of 5-period demand. I therefore set L via calculated observed lead times to reflect confirmed L=4, and use default mu_hat and sigma_hat so the OR backend computes base-stock from full-sample mean/variance. This balances service level (use observed lead time and full-sample demand mean) vs holding cost given current substantial in-transit inventory.
+Period 8: recent concluded arrivals (P1->P5, P2->P6, P3->P7) confirm actual lead time = 4. On-hand=62, In-transit=439; arrivals expected but no sustained demand regime shift (recent demands: 83,108,107,167,122,73,140 show variability but no persistent change). Use default lead time and default demand estimates so OR backend uses full historical mean/variance with (1+L) coverage; this balances service level given confirmed L=4 and avoids overreacting to noise in demand or pipeline.
 
 Carry-over insight: (empty)
 
@@ -336,7 +336,7 @@ Period 8 (Period_8) LLM->OR Backend Computation (CAPPED POLICY):
 ======================================================================
 
 chips(Regular):
-  L method: calculate, observed_samples=6, computed L = 4.00
+  L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 560.42
   sigma_hat method: default, computed sigma_hat = 57.23
   Total inventory (on-hand + in-transit): 501
@@ -369,7 +369,7 @@ Daily Reward (R_t): $1909.00
 Period 9 (Period_9) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 9: on-hand=86, in-transit=464. Historical concluded arrivals show consistent lead_time=4 (orders P1\u2192P5, P2\u2192P6, P3\u2192P7, P4\u2192P8). Pipeline + on-hand covers multiple periods. I set L via calculate to use observed lead-time data (avg=4) to ensure OR uses confirmed actual lead time. I choose default for mu_hat and sigma_hat so the backend uses (1+L)*mean and sqrt(1+L)*std of all provided demand samples (conservative pooling of history) balancing service level (high profit) against holding cost.
+Period 9: recent conclude messages confirm actual lead time = 4 periods (P1->P5, P2->P6, P3->P7, P4->P8). On-hand=86, In-transit=464; arrivals have been consistent with L=4 so no deduction for lost shipments now. Use L calculated from observed leads to reflect confirmed lead time; use default demand sizing (backend will compute (1+L)\xd7mean of all samples = 5\xd7mean) and default volatility so OR backend applies its standard base-stock and cap formulas without manual inflation. This balances service (confirmed stable L) and holding cost given healthy pipeline and on-hand inventory.
 
 Carry-over insight: (empty)
 
@@ -413,7 +413,7 @@ Daily Reward (R_t): $2628.00
 Period 10 (Period_10) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 10. Recent demand has been variable but trending higher over last 5 periods (P5-P9 demands = 122,73,140,105,142; mean=116.4). Inventory: on-hand=70 + in-transit=437 = 507 units. With promised/confirmed lead time 4 (so review+lead = 5 periods), pipeline slightly under expected demand if using recent mean (5\xd7116.4=582). To let OR engine target recent demand patterns and react to the confirmed L=4, I set L=default and use recent_N (N=5) for mu_hat and sigma_hat so the backend computes (1+L)\xd7recent mean and recent volatility, increasing replenishment to cover the observed uptick while keeping holding costs in mind.
+Period 10: confirmed actual lead time = 4 (from prior concluded arrivals). On-hand=70, In-transit=437 \u2014 pipeline large and recent arrivals have matched promised LT so far; no sustained demand regime shift detected (historical samples mean stable). Use explicit L=4 to reflect confirmed lead time so OR computes coverage correctly. Use default mu_hat and sigma_hat (no changepoint; let backend use (1+L)\xd7sample mean and sqrt(1+L)\xd7std) to balance service level vs holding cost.
 
 Carry-over insight: (empty)
 
@@ -424,21 +424,21 @@ Period 10 (Period_10) LLM->OR Backend Computation (CAPPED POLICY):
 ======================================================================
 
 chips(Regular):
-  L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=5, computed mu_hat = 582.00
-  sigma_hat method: recent_N, N=5, computed sigma_hat = 63.81
+  L method: explicit, value=4, computed L = 4.00
+  mu_hat method: default, computed mu_hat = 568.57
+  sigma_hat method: default, computed sigma_hat = 55.86
   Total inventory (on-hand + in-transit): 507
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 686.96
-  Cap value: 163.34
-  Order (capped): 164
-  Order (uncapped): 180
+  Base stock = 660.45
+  Cap value: 154.80
+  Order (capped): 154
+  Order (uncapped): 154
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 164
+    "chips(Regular)": 154
   }
 }
 ======================================================================
@@ -450,14 +450,14 @@ Period 10 (Period_10) Demand: {
 }
 
 === Period 10 Summary ===
-chips(Regular): ordered=164, arrived=122 units (ordered on Period 6, lead_time was 4 periods), starting on-hand inventory=192, demand=146, sold=146, ending on-hand inventory=46
+chips(Regular): ordered=154, arrived=122 units (ordered on Period 6, lead_time was 4 periods), starting on-hand inventory=192, demand=146, sold=146, ending on-hand inventory=46
 Daily Profit: $2774.00, Daily Holding Cost: $46.00
 Daily Reward (R_t): $2728.00
 
 Period 11 (Period_11) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 11. Recent concluded history shows every concluded arrival had lead_time=4 (orders placed P1\u2192arrived P5, P2\u2192P6, P3\u2192P7, P4\u2192P8, P5\u2192P9, P6\u2192P10) so actual lead time is stable at 4. On-hand=46, in-transit=479 (pipeline_total=525) \u2014 ample pipeline but arrivals are only visible with one-period delay. I set L using 'calculate' to reflect the observed lead time=4. For demand I use the backend defaults ((1+L)\xd7mean of samples) since the provided sample set (118,124,116,96,91) is the basis and no sustained recent demand regime shift is evident; sigma_hat also uses default to let the OR engine compute volatility over samples. These choices keep the OR base-stock aligned with confirmed lead time while avoiding overfitting short-term noise and addressing potential lost-shipment risk by relying on concluded lead-time evidence.
+Period_11 decision. Recent concludes (P5\u2013P10) consistently show arrivals with lead_time=4; on-hand=46, in-transit=469. No clear evidence of lost shipments beyond normal pipeline given consistent 4-period arrivals, so use promised/confirmed L to let OR compute the correct (1+L)-period coverage. Use default mu_hat and sigma_hat so backend applies (1+L)\xd7mean and sqrt(1+L)\xd7std from historical samples; this balances high profit ($19) against low holding cost ($1) and relies on observed stable demand/lead-time pattern.
 
 Carry-over insight: (empty)
 
@@ -468,21 +468,21 @@ Period 11 (Period_11) LLM->OR Backend Computation (CAPPED POLICY):
 ======================================================================
 
 chips(Regular):
-  L method: calculate, observed_samples=21, computed L = 4.00
+  L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 579.33
   sigma_hat method: default, computed sigma_hat = 56.96
-  Total inventory (on-hand + in-transit): 525
+  Total inventory (on-hand + in-transit): 515
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 673.03
   Cap value: 157.77
-  Order (capped): 149
-  Order (uncapped): 149
+  Order (capped): 158
+  Order (uncapped): 159
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 149
+    "chips(Regular)": 158
   }
 }
 ======================================================================
@@ -494,14 +494,14 @@ Period 11 (Period_11) Demand: {
 }
 
 === Period 11 Summary ===
-chips(Regular): ordered=149, arrived=62 units (ordered on Period 7, lead_time was 4 periods), starting on-hand inventory=108, demand=77, sold=77, ending on-hand inventory=31
+chips(Regular): ordered=158, arrived=62 units (ordered on Period 7, lead_time was 4 periods), starting on-hand inventory=108, demand=77, sold=77, ending on-hand inventory=31
 Daily Profit: $1463.00, Daily Holding Cost: $31.00
 Daily Reward (R_t): $1432.00
 
 Period 12 (Period_12) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 12. Lead time has been confirmed as 4 periods from earlier concluded messages. On-hand = 31, in-transit = 566 \u2192 ample pipeline (597 total) relative to recent demand. No sustained demand regime change detected in available history (demand samples and recent concluded demands show no 3+ period shift). Therefore use default lead time and default demand estimates so the OR backend applies (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples; this avoids overreacting to short-term noise while the large pipeline covers near-term demand and mitigates risk from potential lost shipments.
+Period 12 decision. On-hand=31, In-transit=565. Lead time was previously confirmed as 4 periods (from concluded arrivals), so use promised L. Historical demand shows no sustained regime shift (samples: 118,124,116,96,91), so use default estimation methods: let backend compute mu_hat=(1+L)\xd7mean(all samples) and sigma_hat=sqrt(1+L)\xd7std(all samples). Note: in-transit is large and may include lost orders; I rely on confirmed lead-time evidence only and let backend's capped policy handle ordering limits.
 
 Carry-over insight: (empty)
 
@@ -515,18 +515,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 567.19
   sigma_hat method: default, computed sigma_hat = 59.17
-  Total inventory (on-hand + in-transit): 597
+  Total inventory (on-hand + in-transit): 596
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 664.51
   Cap value: 156.96
-  Order (capped): 68
-  Order (uncapped): 68
+  Order (capped): 69
+  Order (uncapped): 69
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 68
+    "chips(Regular)": 69
   }
 }
 ======================================================================
@@ -538,14 +538,14 @@ Period 12 (Period_12) Demand: {
 }
 
 === Period 12 Summary ===
-chips(Regular): ordered=68, arrived=154 units (ordered on Period 8, lead_time was 4 periods), starting on-hand inventory=185, demand=82, sold=82, ending on-hand inventory=103
+chips(Regular): ordered=69, arrived=154 units (ordered on Period 8, lead_time was 4 periods), starting on-hand inventory=185, demand=82, sold=82, ending on-hand inventory=103
 Daily Profit: $1558.00, Daily Holding Cost: $103.00
 Daily Reward (R_t): $1455.00
 
 Period 13 (Period_13) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 13: on-hand=103, in-transit=480. Historical concluded arrivals confirm actual lead time = 4 (orders placed P1\u2192arrived P5). Pipeline (480) plus on-hand comfortably covers upcoming demand for L+1 periods. No clear recent demand regime shift in observed samples. Use default lead time and default demand estimates so the OR backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples; this leverages all data and the confirmed L=4 to produce a stable base-stock target while avoiding overfitting to short-term noise.
+Period 13: confirmed actual lead time = 4 (from prior concludes). On-hand=103, in-transit=480 with no sustained overdue/lost shipments observed; recent arrivals consistently matched promised L=4. Use promised lead time and population-wide statistics so OR backend's (1+L) coverage formula applies without double-counting. Default mu_hat and sigma_hat let the backend compute (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples, balancing service level (high profit $19) against low holding cost ($1).
 
 Carry-over insight: (empty)
 
@@ -589,7 +589,7 @@ Daily Reward (R_t): $1618.00
 Period 14 (Period_14) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 14: on-hand=111, in-transit=455. Historical concluded arrivals show consistent lead_time=4 (confirmed earlier). Recent demand samples (Periods 1-5) show no sustained regime shift beyond noise. Using promised/confirmed lead time and default demand stats keeps (1+L) scaling and variance consistent with historical data; this balances service level (high pipeline + on-hand) against holding cost without overreacting to short-term fluctuations. No overdue/lost shipments signaled in concluded history.
+Period 14. Recent concluded history shows stable actual lead time = 4 (multiple P->P+4 confirmations) and no evidence of lost shipments; demand recently averaged roughly stable around prior periods (no sustained upward/downward shift). Current on-hand = 111, in-transit = 455 which plus on-hand provides ample coverage vs typical demand. Therefore use default lead time and default demand statistics so OR backend applies (1+L) coverage correctly and balances service level vs holding cost.
 
 Carry-over insight: (empty)
 
@@ -626,16 +626,16 @@ Period 14 (Period_14) Demand: {
 }
 
 === Period 14 Summary ===
-chips(Regular): ordered=84, arrived=164 units (ordered on Period 10, lead_time was 4 periods), starting on-hand inventory=275, demand=72, sold=72, ending on-hand inventory=203
-Daily Profit: $1368.00, Daily Holding Cost: $203.00
-Daily Reward (R_t): $1165.00
+chips(Regular): ordered=84, arrived=154 units (ordered on Period 10, lead_time was 4 periods), starting on-hand inventory=265, demand=72, sold=72, ending on-hand inventory=193
+Daily Profit: $1368.00, Daily Holding Cost: $193.00
+Daily Reward (R_t): $1175.00
 
 Period 15 (Period_15) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_15: on-hand=203, in-transit=375. Historical concluded lead times consistently 4 (orders placed P1..P10 arrived after 4 periods). Recent demand samples (Periods 1-5): [118,124,116,96,91] show mean ~109. Use calculate for L to confirm observed LT=4 to the OR engine. Use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples \u2014 this leverages full history and the confirmed LT. This balances service level (profit $19 >> holding $1 so backend will target high fill) while avoiding manual shrink of demand forecast given no sustained regime shift. On-hand + in-transit (578 total) covers multiple lead cycles; no overdue shipments beyond confirmed LT.
+Period 15: recent demand has been stable (history shows demands mostly ~70\u2013150, no sustained shift). Lead time has been consistently observed as 4 periods (confirmed earlier). On-hand=193 and in-transit=385 with no overdue/lost shipments evident \u2014 pipeline appears healthy. I therefore use default lead time (promised=4) and default demand estimates so the OR engine uses (1+L)\xd7mean of all samples and sqrt(1+L)\xd7std to compute base stock and cap. This balances service level (maintain current high on-hand + pipeline) against holding costs without overreacting to noise.
 
-Carry-over insight: Lead time confirmed as 4 periods (observed: orders P1..P10 arrived after 4 periods)
+Carry-over insight: (empty)
 
 ======================================================================
 
@@ -644,7 +644,7 @@ Period 15 (Period_15) LLM->OR Backend Computation (CAPPED POLICY):
 ======================================================================
 
 chips(Regular):
-  L method: calculate, observed_samples=55, computed L = 4.00
+  L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 542.11
   sigma_hat method: default, computed sigma_hat = 60.63
   Total inventory (on-hand + in-transit): 578
@@ -670,14 +670,14 @@ Period 15 (Period_15) Demand: {
 }
 
 === Period 15 Summary ===
-chips(Regular): ordered=64, arrived=149 units (ordered on Period 11, lead_time was 4 periods), starting on-hand inventory=352, demand=110, sold=110, ending on-hand inventory=242
-Daily Profit: $2090.00, Daily Holding Cost: $242.00
-Daily Reward (R_t): $1848.00
+chips(Regular): ordered=64, arrived=158 units (ordered on Period 11, lead_time was 4 periods), starting on-hand inventory=351, demand=110, sold=110, ending on-hand inventory=241
+Daily Profit: $2090.00, Daily Holding Cost: $241.00
+Daily Reward (R_t): $1849.00
 
 Period 16 (Period_16) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 16. On-hand=242, in-transit=290 (total pipeline 532). Historical concluded lead times all 4 periods \u2192 confirm L=4. Demand samples (Periods 1\u20135) have mean 109; (1+L)*mean \u2248 545 so pipeline is slightly below the (L+1)-period demand forecast. Profit=$19 vs Holding=$1 favors service; use backend defaults so OR engine computes base stock using all samples and confirmed lead time. Methods chosen: calculate L from observed lead times; default mu_hat and sigma_hat (use all samples and confirmed L).
+Period 16: on-hand=241, in-transit=291. Historical demand samples (periods 1\u20135) show mean=109; carry-over already confirmed lead time=4. No evidence of demand regime shift or lost shipments needing adjustment. Use promised/default lead time to let OR compute base-stock using full history. Default mu_hat and sigma_hat used so OR applies (1+L)\xd7mean and sqrt(1+L)\xd7std, balancing service level (high profit/higher q) vs holding cost.
 
 Carry-over insight: (empty)
 
@@ -688,7 +688,7 @@ Period 16 (Period_16) LLM->OR Backend Computation (CAPPED POLICY):
 ======================================================================
 
 chips(Regular):
-  L method: calculate, observed_samples=66, computed L = 4.00
+  L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 542.50
   sigma_hat method: default, computed sigma_hat = 59.02
   Total inventory (on-hand + in-transit): 532
@@ -714,14 +714,14 @@ Period 16 (Period_16) Demand: {
 }
 
 === Period 16 Summary ===
-chips(Regular): ordered=108, arrived=68 units (ordered on Period 12, lead_time was 4 periods), starting on-hand inventory=310, demand=82, sold=82, ending on-hand inventory=228
+chips(Regular): ordered=108, arrived=69 units (ordered on Period 12, lead_time was 4 periods), starting on-hand inventory=310, demand=82, sold=82, ending on-hand inventory=228
 Daily Profit: $1558.00, Daily Holding Cost: $228.00
 Daily Reward (R_t): $1330.00
 
 Period 17 (Period_17) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_17. Recent conclude messages consistently show actual lead time = 4 (confirmed P1->P5 and P1..P11 arrivals), on-hand=228, in-transit=330. Demand history shows no sustained regime change beyond historical samples; inventory is ample but pipeline is large. Use default lead time (promised 4) and default demand/volatility calculations so OR backend applies (1+L) scaling to full-sample mean/std. This keeps targets aligned with long-run demand estimates while avoiding overreacting to short-term noise; with strong profit vs. holding cost, backend will set base stock to meet service level but capped by its cap to limit oversized orders.
+Period 17: recent demand samples (Periods 1-5) show mean ~109 units; historical concluded arrivals confirm actual lead time = 4 (recorded). Current on-hand=228 and in-transit=330 with no overdue shipments flagged in concluded history. I therefore use the promised/confirmed lead time (default) and let the OR engine compute mu_hat and sigma_hat from full-sample defaults so it applies (1+L) coverage automatically. This keeps parameters aligned with observed stable demand and confirmed L=4 while avoiding over-adjustment for in-transit figures that may include pipeline timing.
 
 Carry-over insight: (empty)
 
@@ -765,7 +765,7 @@ Daily Reward (R_t): $1038.00
 Period 18 (Period_18) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_18. Recent concluded history consistently shows actual lead time = 4 periods (confirmed many times). On-hand=235, in-transit=332 \u2192 healthy pipeline covering multiple periods of demand. Historical demand samples (Periods 1\u20135) mean=109 units/period; no sustained demand regime shift detected. Use promised lead time default to keep OR aligned with observed LT=4. Use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and \u221a(1+L)\xd7std from all samples, providing stable base-stock sizing given ample on-hand + in-transit and low holding cost relative to profit.
+Period 18. On-hand=235, in-transit=332. Historical concluded arrivals consistently show actual lead time = 4 (confirmed in carry-over), no evidence of lost shipments. Historical sample mean demand = 109 (from provided samples); use standard OR defaults which already scale by (1+L)=5 to cover review+lead time. Choosing default methods keeps OR's baseline service-level calculation and avoids over-adjusting given stable demand history and confirmed lead time.
 
 Carry-over insight: (empty)
 
@@ -809,7 +809,7 @@ Daily Reward (R_t): $1081.00
 Period 19 (Period_19) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_19: on-hand=249, in-transit=308. Historical concluded arrivals confirm actual lead time = 4 (multiple observations through P15). Recent demand (concluded periods) shows no sustained regime shift vs. initial sample mean (samples: 118,124,116,96,91 -> mean=109). No overdue/lost shipments visible. Using default L lets backend use promised/confirmed lead time; default mu_hat and sigma_hat use all-sample statistics ((1+L)\xd7mean and sqrt(1+L)\xd7std) which is appropriate given stable demand and the confirmed lead time. This balances service level (profit >> holding cost) while avoiding unnecessary extra safety stock.
+Period 19: recent concluded history shows consistent actual lead time=4 (confirmed from prior periods). On-hand=249, in-transit=308 with no evidence of lost shipments. Historical demand samples mean=109 units/period; using promised lead time L=4 is supported by observed arrivals. Use default methods so OR backend computes base-stock using (1+L)\xd7mean (covers review+lead) and volatility from all samples; this balances service (high profit $19 vs holding $1) without overreacting to noise.
 
 Carry-over insight: (empty)
 
@@ -853,7 +853,7 @@ Daily Reward (R_t): $667.00
 Period 20 (Period_20) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_20: recent on-hand=264 and in-transit=308. Historical concludes consistently show actual lead time=4 (orders from P1..P15 arrived after 4 periods), so use promised/default lead time. Demand samples (periods 1\u20135: 118,124,116,96,91) mean=109; to balance high profit ($19) vs low holding cost ($1) use baseline estimates so backend can compute service-level adjusted base stock. Chosen methods: L=default to keep L=4 (confirmed), mu_hat=default to use (1+L)\xd7mean(all samples), sigma_hat=default to use sqrt(1+L)\xd7std(all samples). This keeps ordering responsive to historical demand while leveraging the confirmed 4-period lead time and avoids overfitting to short-term noise.
+Period 20. Recent concluded history consistently shows actual lead time = 4 (confirmed P1->P5, P2->P6, ... P15->P19). On-hand=264, In-transit=308; no strong evidence of lost shipments or demand regime change\u2014inventory is ample vs. historical demand. Use default L to honor confirmed promised lead time and let OR compute mu_hat/sigma_hat from full sample set (mu_hat=(1+L)*mean_of_samples covers review+lead time). This balances service level (profit $19 vs holding $1) without overreacting to noise.
 
 Carry-over insight: (empty)
 
@@ -897,7 +897,7 @@ Daily Reward (R_t): $548.00
 Period 21 (Period_21) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_21: on-hand=326, in-transit=244. Historical concluded arrivals consistently show actual lead time = 4 (confirmed in carry-over). No recent demand regime shift (demand stable in recent periods). To keep policy aligned with confirmed lead time and historical sample statistics, use default computations so backend sets mu_hat = (1+L)\xd7mean(all samples) and sigma_hat = sqrt(1+L)\xd7std(all samples). This balances service level (use confirmed L=4) against holding cost given high on-hand inventory and steady demand.
+Period 21. On-hand=326, In-transit=244. Historical conclude messages consistently show actual lead time = 4 periods with no evidence of lost shipments or sustained demand shift. Demand appears stable. Therefore use default lead time and default demand/volatility calculations so OR backend uses (1+L)-period coverage based on full sample history.
 
 Carry-over insight: (empty)
 
@@ -941,7 +941,7 @@ Daily Reward (R_t): $398.00
 Period 22 (Period_22) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 22. Recent sample mean=109 units/period (samples:118,124,116,96,91). On-hand=362, in-transit=208 \u2192 total pipeline=570 units, which slightly exceeds (1+L)*mean demand (5*109=545), so no urgent replenishment needed. Historical concluded arrivals consistently show lead time=4; therefore use the promised/default lead time and default demand estimates to let the OR engine compute base-stock and cap from full-sample stats. This balances service (covering ~5 periods demand) vs holding cost given current healthy pipeline.
+Period 22: recent history shows stable demand (Periods 1\u201321) and confirmed lead time=4 (carry-over). On-hand=362, In-transit=208 -> total pipeline 570; no evidence of lost shipments or sustained demand regime shift. Use default lead time and default demand estimators so backend applies (1+L) coverage and its service-level cap; this keeps ordering conservative given high on-hand while letting OR balance profit vs holding costs.
 
 Carry-over insight: (empty)
 
@@ -985,7 +985,7 @@ Daily Reward (R_t): $598.00
 Period 23 (Period_23) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_23. Lead time has been consistently observed as 4 periods in concluded history; no recent missing shipments. Current on-hand=371 + in-transit=182 = 553 units, which roughly matches (1+L)*historic mean demand (5\xd7109=545) so pipeline adequately covers the review+lead demand. Use default lead time (promised 4) and default demand stats (all samples) because demand history is limited but stable and current inventory is sufficient\u2014this avoids unnecessary extra ordering and limits holding cost. Sigma use default to reflect historical variability.
+Period 23. On-hand=371, In-transit=182. Historical concluded arrivals consistently show lead time=4 (carry-over). No evidence of lost shipments or demand regime shift; recent demands (Periods1-5) average 109. Use default methods so OR backend applies (1+L) coverage automatically and avoids manual double-counting. This keeps service high given ample on-hand while limiting extra holding cost.
 
 Carry-over insight: (empty)
 
@@ -1029,7 +1029,7 @@ Daily Reward (R_t): $425.00
 Period 24 (Period_24) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 24 start. On-hand=392, in-transit=163. Historical demand samples show mean\u2248109 (samples:118,124,116,96,91) and stable regime; carry-over confirmed lead time = 4. Use L='default' (promised 4) because observed lead times consistently equal promised. Use mu_hat='default' to set (1+L)\xd7mean across all samples = 5\xd7109 to match backend expectations and cover current + L periods. Use sigma_hat='default' to reflect historical volatility scaled by sqrt(1+L). These choices keep the OR engine conservative given large on-hand and in-transit balances while aligning with observed stable demand and confirmed lead time.
+Period 24. Recent demand (Periods 1-5 samples) averages ~109 units; lead time was confirmed as 4 periods (carry-over). Current on-hand=392, in-transit=163 (no evidence of lost shipments). No sustained demand regime or lead-time change detected. Use default L (promised/confirmed 4) so OR's (1+L) coverage is applied correctly; use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from full samples.
 
 Carry-over insight: (empty)
 
@@ -1073,9 +1073,9 @@ Daily Reward (R_t): $224.00
 Period 25 (Period_25) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 25. On-hand=403, in-transit=156. Historical conclude messages confirm actual lead time = 4. Demand has shifted lower since Period 10; to reflect the recent regime I use recent_N for demand and volatility while keeping L as promised so OR uses stable lead-time input. This balances service (use recent demand mean to avoid overstock) and holding cost (reduces base-stock sized to recent lower demand).
+Period 25: confirmed lead time = 4 (from prior concluded history). Recent demand samples (Periods 1-5) have mean 109; no sustained demand regime shift observed. On-hand=403 and in-transit=156 provide ample coverage vs forecast, and some in-transit may be overdue historically but no new lost-shipment evidence this period. Use default L to honor confirmed promised lead time, default mu_hat to let OR compute (1+L)*mean across all samples, and default sigma_hat so OR computes volatility from full sample set. This balances service level (high profit per unit) with holding cost by relying on OR's base-stock formula tuned to the confirmed L and historical demand.
 
-Carry-over insight: Demand regime shift at Period 10: avg decreased from 116.3 to 70.6 (-39.3%) based on Periods 1-9 vs 10-24
+Carry-over insight: (empty)
 
 ======================================================================
 
@@ -1085,20 +1085,20 @@ Period 25 (Period_25) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=15, computed mu_hat = 353.00
-  sigma_hat method: recent_N, N=15, computed sigma_hat = 66.92
+  mu_hat method: default, computed mu_hat = 457.07
+  sigma_hat method: default, computed sigma_hat = 78.05
   Total inventory (on-hand + in-transit): 559
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 463.07
-  Cap value: 119.82
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 585.44
+  Cap value: 148.82
+  Order (capped): 27
+  Order (uncapped): 27
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 27
   }
 }
 ======================================================================
@@ -1110,16 +1110,16 @@ Period 25 (Period_25) Demand: {
 }
 
 === Period 25 Summary ===
-chips(Regular): ordered=0, arrived=40 units (ordered on Period 21, lead_time was 4 periods), starting on-hand inventory=443, demand=33, sold=33, ending on-hand inventory=410
+chips(Regular): ordered=27, arrived=40 units (ordered on Period 21, lead_time was 4 periods), starting on-hand inventory=443, demand=33, sold=33, ending on-hand inventory=410
 Daily Profit: $627.00, Daily Holding Cost: $410.00
 Daily Reward (R_t): $217.00
 
 Period 26 (Period_26) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_26: recent demand regime is the lower regime that began at Period_10 (carry-over evidence: avg demand dropped to ~70.6 from ~116.3). On-hand=410 + in-transit=116 => healthy pipeline (no recent lost shipments; observed lead time consistently 4). Set L to default (promised 4). For demand forecast use recent_N over the current low-demand regime to capture the reduced mean: recent_N N=16 (Periods 10\u201325) for mu_hat. Use recent_N N=16 for sigma_hat to reflect volatility in the same recent window. These choices keep base-stock aligned with the sustained lower demand while the correct lead time is applied, avoiding excess holding cost.
+Period 26: on-hand=410, in-transit=143. Historical concluded arrivals consistently show actual lead time=4 (confirmed in carry-over). Recent demand has been low (~40s\u201370s) compared with early-sample prior; pipeline shows no obvious lost shipments (arrivals have matched past orders on 4-period lag). Use conservative default settings so OR backend uses promised lead time and full history for demand/volatility estimates; this leverages the OR formula's (1+L) coverage while avoiding overreaction to recent low noise.
 
-Carry-over insight: (empty)
+Carry-over insight: Lead time confirmed as 4 periods (observed: orders placed P1..P21 arrived with lead_time=4)
 
 ======================================================================
 
@@ -1129,20 +1129,20 @@ Period 26 (Period_26) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=16, computed mu_hat = 341.25
-  sigma_hat method: recent_N, N=16, computed sigma_hat = 67.98
-  Total inventory (on-hand + in-transit): 526
+  mu_hat method: default, computed mu_hat = 447.33
+  sigma_hat method: default, computed sigma_hat = 80.31
+  Total inventory (on-hand + in-transit): 553
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 453.06
-  Cap value: 118.25
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 579.43
+  Cap value: 148.54
+  Order (capped): 27
+  Order (uncapped): 27
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 27
   }
 }
 ======================================================================
@@ -1154,14 +1154,14 @@ Period 26 (Period_26) Demand: {
 }
 
 === Period 26 Summary ===
-chips(Regular): ordered=0, arrived=34 units (ordered on Period 22, lead_time was 4 periods), starting on-hand inventory=444, demand=49, sold=49, ending on-hand inventory=395
+chips(Regular): ordered=27, arrived=34 units (ordered on Period 22, lead_time was 4 periods), starting on-hand inventory=444, demand=49, sold=49, ending on-hand inventory=395
 Daily Profit: $931.00, Daily Holding Cost: $395.00
 Daily Reward (R_t): $536.00
 
 Period 27 (Period_27) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_27: on-hand=395, in-transit=82. Historical concludes consistently show actual lead time = 4 (multiple observations). A sustained demand drop was previously detected at Period_10 (post-change regime spans Periods 10\u201326, length=17). To align the OR backend with the lower recent demand regime and confirmed lead time, set L=default (promised 4). Forecast (mu_hat) and volatility (sigma_hat) will use recent_N with N=17 (use the last 17 demand periods to capture the current low-demand regime). This reduces target base-stock relative to early high-demand samples and limits overstock while maintaining service given confirmed L=4 and the existing in-transit pipeline.
+Period 27. Historical demand samples (Periods 1\u20135) show mean=109 units/period; lead time has been repeatedly confirmed as 4 periods in the history. On-hand=395, in-transit=136; pipeline appears to be arriving on schedule (no overdue shipments flagged). Use default lead time and default demand/volatility calculations so OR backend applies (1+L) coverage automatically (no manual scaling). This balances service (high profit $19 vs holding $1) by relying on OR's base-stock calculation and capped order cap.
 
 Carry-over insight: (empty)
 
@@ -1173,20 +1173,20 @@ Period 27 (Period_27) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=17, computed mu_hat = 335.59
-  sigma_hat method: recent_N, N=17, computed sigma_hat = 66.64
-  Total inventory (on-hand + in-transit): 477
+  mu_hat method: default, computed mu_hat = 440.81
+  sigma_hat method: default, computed sigma_hat = 80.62
+  Total inventory (on-hand + in-transit): 531
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 445.20
-  Cap value: 116.14
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 573.41
+  Cap value: 147.46
+  Order (capped): 43
+  Order (uncapped): 43
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 43
   }
 }
 ======================================================================
@@ -1198,14 +1198,14 @@ Period 27 (Period_27) Demand: {
 }
 
 === Period 27 Summary ===
-chips(Regular): ordered=0, arrived=45 units (ordered on Period 23, lead_time was 4 periods), starting on-hand inventory=440, demand=54, sold=54, ending on-hand inventory=386
+chips(Regular): ordered=43, arrived=45 units (ordered on Period 23, lead_time was 4 periods), starting on-hand inventory=440, demand=54, sold=54, ending on-hand inventory=386
 Daily Profit: $1026.00, Daily Holding Cost: $386.00
 Daily Reward (R_t): $640.00
 
 Period 28 (Period_28) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_28: on-hand=386, in-transit=37. Historical concluded arrivals confirm actual lead time = 4 periods and a sustained demand regime shift beginning at Period_10 (post-change demand lower). I set L=default to trust the promised lead time (matches confirmed observations). For demand I use recent_N with N=18 (Periods 10\u201327) to capture the new lower regime; mu_hat will be computed as (1+L)\xd7mean of those 18 recent samples, which balances service level against holding cost given much lower demand than early periods. For sigma_hat I also use recent_N N=18 to reflect volatility in the current regime and let the OR engine size safety stock appropriately. This addresses missing/late shipments (none recent) and prioritizes reducing overstock while maintaining service under the lower-demand regime.
+Period 28. chips(Regular): on-hand=386, in-transit=134. Historical concludes consistently show actual lead time = 4 periods (confirmed earlier), no new lost-shipment signal. Demand history is stable with no sustained regime change. I therefore use the promised/confirmed lead time (default) so the OR backend computes mu_hat = (1+L)*mean(all samples) and sigma_hat = sqrt(1+L)*std(all samples). This leverages all observed demand data and the confirmed L=4 to let the backend target a high service level (profit $19 vs holding $1 implies q\u22480.95) while capping orders to limit excess holding cost.
 
 Carry-over insight: (empty)
 
@@ -1217,20 +1217,20 @@ Period 28 (Period_28) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=18, computed mu_hat = 331.94
-  sigma_hat method: recent_N, N=18, computed sigma_hat = 65.02
-  Total inventory (on-hand + in-transit): 423
+  mu_hat method: default, computed mu_hat = 435.47
+  sigma_hat method: default, computed sigma_hat = 80.45
+  Total inventory (on-hand + in-transit): 520
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 438.89
-  Cap value: 114.22
-  Order (capped): 16
-  Order (uncapped): 16
+  Base stock = 567.79
+  Cap value: 146.27
+  Order (capped): 48
+  Order (uncapped): 48
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 16
+    "chips(Regular)": 48
   }
 }
 ======================================================================
@@ -1242,14 +1242,14 @@ Period 28 (Period_28) Demand: {
 }
 
 === Period 28 Summary ===
-chips(Regular): ordered=16, arrived=37 units (ordered on Period 24, lead_time was 4 periods), starting on-hand inventory=423, demand=31, sold=31, ending on-hand inventory=392
+chips(Regular): ordered=48, arrived=37 units (ordered on Period 24, lead_time was 4 periods), starting on-hand inventory=423, demand=31, sold=31, ending on-hand inventory=392
 Daily Profit: $589.00, Daily Holding Cost: $392.00
 Daily Reward (R_t): $197.00
 
 Period 29 (Period_29) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_29 decision. On-hand=392, in-transit=16 \u2014 current inventory is very high relative to recent demand (history shows sustained lower demand since Period_10). No recent concluded anomalies in lead time (past concludes consistently show 4). To avoid over-ordering given high on-hand and an established lower-demand regime, use the backend defaults so it computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples with the promised lead time. This keeps ordering conservative and leverages the OR engine's capped policy to limit order size.
+Period 29: on-hand=392, in-transit=145. Historical concluded arrivals consistently show actual lead time = 4 (confirmed prior). Inventory is ample versus recent demands (no evidence of lost shipments). Use default lead time and default demand estimates so OR backend applies (1+L)\xd7mean and sqrt(1+L)\xd7std across full sample history; this avoids overreacting to short-term demand noise and leverages confirmed L=4.
 
 Carry-over insight: (empty)
 
@@ -1263,18 +1263,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 426.97
   sigma_hat method: default, computed sigma_hat = 82.14
-  Total inventory (on-hand + in-transit): 408
+  Total inventory (on-hand + in-transit): 537
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 562.07
   Cap value: 145.81
-  Order (capped): 146
-  Order (uncapped): 155
+  Order (capped): 26
+  Order (uncapped): 26
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 146
+    "chips(Regular)": 26
   }
 }
 ======================================================================
@@ -1286,14 +1286,14 @@ Period 29 (Period_29) Demand: {
 }
 
 === Period 29 Summary ===
-chips(Regular): ordered=146, arrived=0, starting on-hand inventory=392, demand=56, sold=56, ending on-hand inventory=336
-Daily Profit: $1064.00, Daily Holding Cost: $336.00
-Daily Reward (R_t): $728.00
+chips(Regular): ordered=26, arrived=27 units (ordered on Period 25, lead_time was 4 periods), starting on-hand inventory=419, demand=56, sold=56, ending on-hand inventory=363
+Daily Profit: $1064.00, Daily Holding Cost: $363.00
+Daily Reward (R_t): $701.00
 
 Period 30 (Period_30) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 30. On-hand=336, in-transit=162 \u2192 ample coverage vs. reduced demand regime. Historical conclues confirm actual lead time = 4. Demand has been lower since Period 10 (carry-over insight) and recent demand (Periods 25-29 = 33,49,54,31,56) better represents current regime. To avoid overstock while preserving service, keep promised lead time and use recent_N (N=5) for mu_hat and sigma_hat so the OR engine forecasts (1+L)-period demand and volatility based on the most recent low-demand regime.
+Period 30. On-hand=363, in-transit=144. Historical concluded arrivals consistently show actual lead time = 4 (confirmed earlier), no sustained demand regime shift: recent demand has been moderate and stable. Pipeline appears healthy (no overdue/lost shipments). Use promised/confirmed lead time and default demand estimates so OR backend applies (1+L) coverage correctly and avoids manual double-counting of periods; this balances service level vs holding cost given high on-hand inventory.
 
 Carry-over insight: (empty)
 
@@ -1305,20 +1305,20 @@ Period 30 (Period_30) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=5, computed mu_hat = 223.00
-  sigma_hat method: recent_N, N=5, computed sigma_hat = 26.39
-  Total inventory (on-hand + in-transit): 498
+  mu_hat method: default, computed mu_hat = 422.65
+  sigma_hat method: default, computed sigma_hat = 81.66
+  Total inventory (on-hand + in-transit): 507
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 266.41
-  Cap value: 64.01
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 556.97
+  Cap value: 144.60
+  Order (capped): 50
+  Order (uncapped): 50
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 50
   }
 }
 ======================================================================
@@ -1330,14 +1330,14 @@ Period 30 (Period_30) Demand: {
 }
 
 === Period 30 Summary ===
-chips(Regular): ordered=0, arrived=0, starting on-hand inventory=336, demand=22, sold=22, ending on-hand inventory=314
-Daily Profit: $418.00, Daily Holding Cost: $314.00
-Daily Reward (R_t): $104.00
+chips(Regular): ordered=50, arrived=27 units (ordered on Period 26, lead_time was 4 periods), starting on-hand inventory=390, demand=22, sold=22, ending on-hand inventory=368
+Daily Profit: $418.00, Daily Holding Cost: $368.00
+Daily Reward (R_t): $50.00
 
 Period 31 (Period_31) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Current period shows high on-hand (314) + in-transit (162) = 476 units. Historical concludes confirm actual lead time=4. A sustained demand regime shift was previously recorded (lower demand since Period 10). To reflect the post-shift demand, I use recent_N (N=20) for demand mean and volatility to focus the forecast on the most recent regime while keeping lead time at the promised/confirmed 4. This keeps the OR base-stock tuned to current lower demand and avoids over-ordering given large on-hand inventory.
+Period 31: recent history shows stable arrivals with confirmed lead time = 4 (carry-over). On-hand=368, in-transit=167; pipeline appears healthy with no overdue shipments. Demand samples (Periods 1-5) show mean ~109; no sustained demand regime shift detected. Use promised/confirmed lead time and default mu/sigma so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std, preserving the OR engine's built-in (L+1) coverage and service/holding tradeoff.
 
 Carry-over insight: (empty)
 
@@ -1349,20 +1349,20 @@ Period 31 (Period_31) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 289.50
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 51.11
-  Total inventory (on-hand + in-transit): 476
+  mu_hat method: default, computed mu_hat = 413.71
+  sigma_hat method: default, computed sigma_hat = 83.85
+  Total inventory (on-hand + in-transit): 535
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 373.57
-  Cap value: 95.50
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 551.64
+  Cap value: 144.42
+  Order (capped): 17
+  Order (uncapped): 17
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 17
   }
 }
 ======================================================================
@@ -1374,14 +1374,14 @@ Period 31 (Period_31) Demand: {
 }
 
 === Period 31 Summary ===
-chips(Regular): ordered=0, arrived=0, starting on-hand inventory=314, demand=70, sold=70, ending on-hand inventory=244
-Daily Profit: $1330.00, Daily Holding Cost: $244.00
-Daily Reward (R_t): $1086.00
+chips(Regular): ordered=17, arrived=43 units (ordered on Period 27, lead_time was 4 periods), starting on-hand inventory=411, demand=70, sold=70, ending on-hand inventory=341
+Daily Profit: $1330.00, Daily Holding Cost: $341.00
+Daily Reward (R_t): $989.00
 
 Period 32 (Period_32) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_32: confirmed historical lead time=4; on-hand=244, in-transit=162 (ample pipeline). Demand has been in the lower regime since Period_10 (~70.6 avg) and recent five-period mean is ~46.6, so I bias the forecast to very recent demand to avoid excess holding cost. Set L to default (promised 4). Use recent_N (N=5) for mu_hat and sigma_hat to capture the current lower-demand, higher-frequency variability and let the OR backend compute base-stock and cap accordingly.
+Period 32: recent concluded history confirms actual lead time = 4 periods. Demand samples (Periods 1\u20135) show baseline behavior; current inventory is high: on-hand=341, in-transit=141. No shipments are overdue in conclude history and no sustained demand regime change detected. Use default lead time (promised L=4) so OR backend treats L as 4. Use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples\u2014this leverages full historical data and the confirmed lead time. These settings avoid overreacting to short-term noise given large on-hand stock, letting the OR engine cap orders to prevent excess holding costs while preserving service level.
 
 Carry-over insight: (empty)
 
@@ -1393,20 +1393,20 @@ Period 32 (Period_32) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=5, computed mu_hat = 233.00
-  sigma_hat method: recent_N, N=5, computed sigma_hat = 43.86
-  Total inventory (on-hand + in-transit): 406
+  mu_hat method: default, computed mu_hat = 411.94
+  sigma_hat method: default, computed sigma_hat = 82.78
+  Total inventory (on-hand + in-transit): 482
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 305.15
-  Cap value: 78.87
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 548.11
+  Cap value: 143.28
+  Order (capped): 67
+  Order (uncapped): 67
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 67
   }
 }
 ======================================================================
@@ -1418,14 +1418,14 @@ Period 32 (Period_32) Demand: {
 }
 
 === Period 32 Summary ===
-chips(Regular): ordered=0, arrived=16 units (ordered on Period 28, lead_time was 4 periods), starting on-hand inventory=260, demand=46, sold=46, ending on-hand inventory=214
-Daily Profit: $874.00, Daily Holding Cost: $214.00
-Daily Reward (R_t): $660.00
+chips(Regular): ordered=67, arrived=48 units (ordered on Period 28, lead_time was 4 periods), starting on-hand inventory=389, demand=46, sold=46, ending on-hand inventory=343
+Daily Profit: $874.00, Daily Holding Cost: $343.00
+Daily Reward (R_t): $531.00
 
 Period 33 (Period_33) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_33: on-hand=214, in-transit=146. Historical concludes show consistent actual lead time=4 and a sustained demand regime shift down starting Period_10 (documented in carry-overs). Pipeline + on-hand is healthy but demand remains lower than early-period levels. I keep L=default (promised=4, matches confirmed observations). For demand I use recent_N with N=20 to base (1+L)\xd7mean on the most recent stable low-demand regime (Period_10 onward, regime length >20) so the OR engine reduces target stock vs the high-demand early regime. For volatility I also use recent_N N=20 to reflect recent variability. These choices reduce overstock risk while preserving service given long lead time and confirmed lower demand.
+Period 33. Historical concluded lead times consistently 4 periods (confirmed P1\u2192P5 and many subsequent orders). Recent on-hand=343, in-transit=160; no evidence of lost shipments. Demand history (periods 1\u20135) mean=109; use default methods so OR backend applies its (1+L) coverage. This keeps base stock = (1+L)*mean and uses observed variability; balances high profit vs low holding cost by relying on proven LT=4 and full-sample demand stats.
 
 Carry-over insight: (empty)
 
@@ -1437,20 +1437,20 @@ Period 33 (Period_33) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 278.75
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 49.14
-  Total inventory (on-hand + in-transit): 360
+  mu_hat method: default, computed mu_hat = 407.03
+  sigma_hat method: default, computed sigma_hat = 82.71
+  Total inventory (on-hand + in-transit): 503
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 359.58
-  Cap value: 91.90
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 543.08
+  Cap value: 142.25
+  Order (capped): 41
+  Order (uncapped): 41
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 41
   }
 }
 ======================================================================
@@ -1462,14 +1462,14 @@ Period 33 (Period_33) Demand: {
 }
 
 === Period 33 Summary ===
-chips(Regular): ordered=0, arrived=146 units (ordered on Period 29, lead_time was 4 periods), starting on-hand inventory=360, demand=31, sold=31, ending on-hand inventory=329
-Daily Profit: $589.00, Daily Holding Cost: $329.00
-Daily Reward (R_t): $260.00
+chips(Regular): ordered=41, arrived=26 units (ordered on Period 29, lead_time was 4 periods), starting on-hand inventory=369, demand=31, sold=31, ending on-hand inventory=338
+Daily Profit: $589.00, Daily Holding Cost: $338.00
+Daily Reward (R_t): $251.00
 
 Period 34 (Period_34) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 34. On-hand=329, in-transit=0. Historical conclude messages repeatedly confirm actual lead time = 4 (multiple P->P+4 observations). Recent long history shows a lower demand regime since Period 10 (documented in carry-over). Given confirmed LT=4 and limited sample set provided, choose default lead time (promised) and default demand estimates so the OR backend uses (1+L)*mean and sqrt(1+L)*std from all samples. This keeps orders conservative (no in-transit) while the backend's capped policy limits order sizes and balances profit vs holding cost.
+Period 34: on-hand=338, in-transit=175. Historical concludes consistently show actual lead time = 4. Demand history shows no sustained regime shift. Pipeline not showing long-overdue orders. Use default lead time and default demand/volatility (backend will compute (1+L)\xd7mean and sqrt(1+L)\xd7std) to let OR balance service level vs holding cost.
 
 Carry-over insight: (empty)
 
@@ -1483,18 +1483,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 400.39
   sigma_hat method: default, computed sigma_hat = 83.61
-  Total inventory (on-hand + in-transit): 329
+  Total inventory (on-hand + in-transit): 513
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 537.92
   Cap value: 141.58
-  Order (capped): 142
-  Order (uncapped): 209
+  Order (capped): 25
+  Order (uncapped): 25
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 142
+    "chips(Regular)": 25
   }
 }
 ======================================================================
@@ -1506,14 +1506,14 @@ Period 34 (Period_34) Demand: {
 }
 
 === Period 34 Summary ===
-chips(Regular): ordered=142, arrived=0, starting on-hand inventory=329, demand=25, sold=25, ending on-hand inventory=304
-Daily Profit: $475.00, Daily Holding Cost: $304.00
-Daily Reward (R_t): $171.00
+chips(Regular): ordered=25, arrived=50 units (ordered on Period 30, lead_time was 4 periods), starting on-hand inventory=388, demand=25, sold=25, ending on-hand inventory=363
+Daily Profit: $475.00, Daily Holding Cost: $363.00
+Daily Reward (R_t): $112.00
 
 Period 35 (Period_35) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 35. Confirmed lead time remains 4 (previously observed). Current on-hand=304 + in-transit=142 => pipeline 446, which covers many periods given recent lower demand; previous carry-over recorded a sustained demand drop around Period 10. To avoid overreacting to recent low variability and to let the OR backend use full-sample stats (while honoring confirmed L=4), I select default lead time and default demand estimates so the engine computes (1+L)*mean and sqrt(1+L)*std from all samples. This keeps service high while avoiding needless churn given large existing inventory and the known lower-demand regime.
+Period 35. On-hand=363, in-transit=150. Past conclude messages consistently show actual lead time = 4 periods (confirmed P1..P30 arrivals). No evidence of lost shipments or demand regime shift; recent demand is stable. Use promised/default lead time to match observed behavior. Use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples, letting the OR engine produce the capped order balancing $19 profit vs $1 holding cost.
 
 Carry-over insight: (empty)
 
@@ -1527,18 +1527,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 393.33
   sigma_hat method: default, computed sigma_hat = 84.83
-  Total inventory (on-hand + in-transit): 446
+  Total inventory (on-hand + in-transit): 513
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 532.86
   Cap value: 141.07
-  Order (capped): 87
-  Order (uncapped): 87
+  Order (capped): 20
+  Order (uncapped): 20
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 87
+    "chips(Regular)": 20
   }
 }
 ======================================================================
@@ -1550,14 +1550,14 @@ Period 35 (Period_35) Demand: {
 }
 
 === Period 35 Summary ===
-chips(Regular): ordered=87, arrived=0, starting on-hand inventory=304, demand=55, sold=55, ending on-hand inventory=249
-Daily Profit: $1045.00, Daily Holding Cost: $249.00
-Daily Reward (R_t): $796.00
+chips(Regular): ordered=20, arrived=17 units (ordered on Period 31, lead_time was 4 periods), starting on-hand inventory=380, demand=55, sold=55, ending on-hand inventory=325
+Daily Profit: $1045.00, Daily Holding Cost: $325.00
+Daily Reward (R_t): $720.00
 
 Period 36 (Period_36) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_36: on-hand=249, in-transit=229. Historical conclude messages confirm actual lead time=4 and a sustained demand regime drop starting at Period_10 (lower mean). To reflect the post-change demand regime I set L to the promised/default (4) and use recent_N (N=20) for mu_hat and sigma_hat so the OR engine forecasts (1+L)-period demand and volatility based on the most recent 20 periods (captures the lower mean and current variability). This keeps service level appropriate while avoiding excess holding given the documented demand decline; using recent data also mitigates impact of earlier higher-demand regime and addresses overdue/lost shipment risk by relying on confirmed LT=4.
+Period 36. Recent conclude history consistently shows actual lead time = 4 (confirmed earlier). Current inventory: on-hand=325, in-transit=153. Demand history (seed samples) shows no sustained regime shift; pipeline arrivals have been regular with lead_time=4. To avoid over-reacting to short-term noise and because OR's formula already multiplies by (1+L), use default settings so backend uses promised lead time and full-sample demand stats. This keeps service high while controlling holding cost given high on-hand stock.
 
 Carry-over insight: (empty)
 
@@ -1569,20 +1569,20 @@ Period 36 (Period_36) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 238.25
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 36.17
+  mu_hat method: default, computed mu_hat = 390.38
+  sigma_hat method: default, computed sigma_hat = 84.15
   Total inventory (on-hand + in-transit): 478
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 297.75
-  Cap value: 74.26
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 528.79
+  Cap value: 139.98
+  Order (capped): 51
+  Order (uncapped): 51
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 51
   }
 }
 ======================================================================
@@ -1594,14 +1594,14 @@ Period 36 (Period_36) Demand: {
 }
 
 === Period 36 Summary ===
-chips(Regular): ordered=0, arrived=0, starting on-hand inventory=249, demand=61, sold=61, ending on-hand inventory=188
-Daily Profit: $1159.00, Daily Holding Cost: $188.00
-Daily Reward (R_t): $971.00
+chips(Regular): ordered=51, arrived=67 units (ordered on Period 32, lead_time was 4 periods), starting on-hand inventory=392, demand=61, sold=61, ending on-hand inventory=331
+Daily Profit: $1159.00, Daily Holding Cost: $331.00
+Daily Reward (R_t): $828.00
 
 Period 37 (Period_37) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_37 context: recent demand regime is the lower-demand regime confirmed earlier (Period 10+). Recent 5 demands (Periods 32-36) = [46,31,25,55,61], mean \u224843.6. On-hand(188)+in-transit(229)=417 units, which already covers ~ (1+L)*recent_mean \u2248 5*43.6=218 units, so no aggressive replenishment needed. Set L=default to use promised 4 (historical concludes consistently show LT=4). Use recent_N (N=5) for mu_hat and sigma_hat to target the current low-demand regime and reflect recent volatility; this keeps base-stock aligned to recent demand and avoids excess holding cost while preserving service level.
+Period 37. Historical concluded arrivals confirm lead time = 4; recent demand has been moderate and stable per history. On-hand=331 and in-transit=137 with no overdue/lost shipments signaled, so use default lead time and demand estimates to let OR compute base_stock and cap. This keeps service high while avoiding unnecessary extra pipeline adjustment.
 
 Carry-over insight: (empty)
 
@@ -1613,20 +1613,20 @@ Period 37 (Period_37) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=5, computed mu_hat = 218.00
-  sigma_hat method: recent_N, N=5, computed sigma_hat = 34.34
-  Total inventory (on-hand + in-transit): 417
+  mu_hat method: default, computed mu_hat = 388.29
+  sigma_hat method: default, computed sigma_hat = 83.31
+  Total inventory (on-hand + in-transit): 468
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 274.48
-  Cap value: 68.86
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 525.32
+  Cap value: 138.94
+  Order (capped): 58
+  Order (uncapped): 58
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 58
   }
 }
 ======================================================================
@@ -1638,14 +1638,14 @@ Period 37 (Period_37) Demand: {
 }
 
 === Period 37 Summary ===
-chips(Regular): ordered=0, arrived=0, starting on-hand inventory=188, demand=63, sold=63, ending on-hand inventory=125
-Daily Profit: $1197.00, Daily Holding Cost: $125.00
-Daily Reward (R_t): $1072.00
+chips(Regular): ordered=58, arrived=41 units (ordered on Period 33, lead_time was 4 periods), starting on-hand inventory=372, demand=63, sold=63, ending on-hand inventory=309
+Daily Profit: $1197.00, Daily Holding Cost: $309.00
+Daily Reward (R_t): $888.00
 
 Period 38 (Period_38) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_38 context: recent demand has remained in lower regime since Period_10 (historic shift captured). On-hand=125 + in-transit=229 = 354 units, which comfortably covers (1+L) periods at recent demand rates. Lead time has been consistently observed as 4 in concluded history; use promised lead time. To reflect the persistent lower-demand regime I use recent_N=20 for demand mean and volatility so the backend base-stock is driven by recent lower-demand behavior (balances service vs holding cost given high on-hand + in-transit). No evidence of new lost shipments.
+Period 38. On-hand=309, in-transit=154. Historical concluded arrivals consistently show lead time = 4 (confirmed in prior periods). No sustained demand regime change detected; recent demand fluctuates but centers near historical mean. In-transit is modest relative to on-hand and shows no long-overdue losses. Therefore use default lead time and default demand estimates so OR backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples\u2014this balances service level (high profit $19 vs holding $1) without overreacting to short-term noise.
 
 Carry-over insight: (empty)
 
@@ -1657,20 +1657,20 @@ Period 38 (Period_38) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 232.00
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 31.63
-  Total inventory (on-hand + in-transit): 354
+  mu_hat method: default, computed mu_hat = 386.55
+  sigma_hat method: default, computed sigma_hat = 82.44
+  Total inventory (on-hand + in-transit): 463
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 284.02
-  Cap value: 69.66
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 522.15
+  Cap value: 137.95
+  Order (capped): 60
+  Order (uncapped): 60
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 60
   }
 }
 ======================================================================
@@ -1682,14 +1682,14 @@ Period 38 (Period_38) Demand: {
 }
 
 === Period 38 Summary ===
-chips(Regular): ordered=0, arrived=142 units (ordered on Period 34, lead_time was 4 periods), starting on-hand inventory=267, demand=83, sold=83, ending on-hand inventory=184
-Daily Profit: $1577.00, Daily Holding Cost: $184.00
-Daily Reward (R_t): $1393.00
+chips(Regular): ordered=60, arrived=25 units (ordered on Period 34, lead_time was 4 periods), starting on-hand inventory=334, demand=83, sold=83, ending on-hand inventory=251
+Daily Profit: $1577.00, Daily Holding Cost: $251.00
+Daily Reward (R_t): $1326.00
 
 Period 39 (Period_39) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period 39. Historical concluded lead times consistently 4 periods (many P arrivals show lead_time=4). Recent demand is in a lower regime since ~Period 10 (earlier carry-over). On-hand=184, in-transit=87 (healthy buffer). I set L by calculating observed lead times to reflect confirmed actual lead time=4. For demand I use recent_N (N=10) for both mu_hat and sigma_hat to capture the post-changepoint lower-demand regime and recent volatility; this keeps base-stock responsive to current lower mean while keeping safety for variance. This balances service (avoid stockouts if demand picks up) vs low holding cost given current high on-hand inventory.
+Period 39: historical demand samples (Periods 1-5) mean=109 units. Past concluded messages repeatedly confirm actual lead time = 4 periods. Current inventory: on-hand=251, in-transit=189 (total pipeline 440) \u2014 no evidence of lost shipments or a sustained demand shift. I keep L at the promised/default, and use default mu_hat and sigma_hat so the OR engine computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples. This leverages the confirmed lead time and stable demand history while avoiding overreaction to noise; it balances service level (using L+1 coverage inherent in mu_hat) against holding cost given healthy on-hand stock.
 
 Carry-over insight: (empty)
 
@@ -1700,21 +1700,21 @@ Period 39 (Period_39) LLM->OR Backend Computation (CAPPED POLICY):
 ======================================================================
 
 chips(Regular):
-  L method: calculate, observed_samples=554, computed L = 4.00
-  mu_hat method: recent_N, N=10, computed mu_hat = 256.00
-  sigma_hat method: recent_N, N=10, computed sigma_hat = 44.79
-  Total inventory (on-hand + in-transit): 271
+  L method: default, computed L = 4.00
+  mu_hat method: default, computed mu_hat = 387.21
+  sigma_hat method: default, computed sigma_hat = 81.47
+  Total inventory (on-hand + in-transit): 440
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 329.68
-  Cap value: 84.15
-  Order (capped): 59
-  Order (uncapped): 59
+  Base stock = 521.22
+  Cap value: 137.37
+  Order (capped): 82
+  Order (uncapped): 82
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 59
+    "chips(Regular)": 82
   }
 }
 ======================================================================
@@ -1726,14 +1726,14 @@ Period 39 (Period_39) Demand: {
 }
 
 === Period 39 Summary ===
-chips(Regular): ordered=59, arrived=87 units (ordered on Period 35, lead_time was 4 periods), starting on-hand inventory=271, demand=44, sold=44, ending on-hand inventory=227
+chips(Regular): ordered=82, arrived=20 units (ordered on Period 35, lead_time was 4 periods), starting on-hand inventory=271, demand=44, sold=44, ending on-hand inventory=227
 Daily Profit: $836.00, Daily Holding Cost: $227.00
 Daily Reward (R_t): $609.00
 
 Period 40 (Period_40) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_40: on-hand=227, in-transit=59. Carry-over confirms lead time = 4 (multiple observations). Historical demand samples (provided seed) show lower recent demand since Period 10, but signal already recorded; no new sustained change detected. Use L=default to trust promised lead time (matches confirmed observations). Use mu_hat=default and sigma_hat=default so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples, providing a conservative refill target given current high on-hand and some in-transit inventory; this avoids over-ordering while the backend's capped policy limits order size and manages holding cost vs service level.
+Period 40. Demand history (samples) mean=109 units; (1+L)=5 so default mu_hat target = 545. On-hand=227 + in-transit=251 => pipeline coverage=478, ~67 units short of default target. All concluded arrivals show consistent lead_time=4 with no evidence of lost shipments. Therefore use default lead time and default demand dispersion using full history so OR backend's base-stock covers the standard (L+1)-period requirement while recognizing the modest shortfall will trigger an order.
 
 Carry-over insight: (empty)
 
@@ -1747,18 +1747,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 383.41
   sigma_hat method: default, computed sigma_hat = 81.31
-  Total inventory (on-hand + in-transit): 286
+  Total inventory (on-hand + in-transit): 478
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 517.15
   Cap value: 136.49
-  Order (capped): 137
-  Order (uncapped): 232
+  Order (capped): 40
+  Order (uncapped): 40
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 137
+    "chips(Regular)": 40
   }
 }
 ======================================================================
@@ -1770,14 +1770,14 @@ Period 40 (Period_40) Demand: {
 }
 
 === Period 40 Summary ===
-chips(Regular): ordered=137, arrived=0, starting on-hand inventory=227, demand=63, sold=63, ending on-hand inventory=164
-Daily Profit: $1197.00, Daily Holding Cost: $164.00
-Daily Reward (R_t): $1033.00
+chips(Regular): ordered=40, arrived=51 units (ordered on Period 36, lead_time was 4 periods), starting on-hand inventory=278, demand=63, sold=63, ending on-hand inventory=215
+Daily Profit: $1197.00, Daily Holding Cost: $215.00
+Daily Reward (R_t): $982.00
 
 Period 41 (Period_41) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_41: on-hand=164, in-transit=196 (total pipeline=360). Historical carry-over shows a sustained demand regime shift down at Period 10 (post-shift mean ~70.6) and lead time repeatedly confirmed as 4. No new sustained changepoint in recent concluded periods. To reflect the lower post-shift demand regime while trusting the confirmed lead time, I set L=default (promised=4) and use recent_N for demand estimates to focus the OR engine on the lower recent demand history (reduces overstock risk). Using recent_N for sigma_hat keeps volatility aligned with recent demand variability. This balances service level vs holding cost given ample inventory but lower ongoing demand.
+Period 41: recent history shows stable weekly demand (historical sample mean ~109) and carry-over confirms actual lead time = 4 periods. Current on-hand=215 and in-transit=240; no shipments appear overdue given consistent 4-period arrivals. Use promised/confirmed lead time to let OR backend compute base-stock covering (1+L) periods. Choosing default methods keeps mu_hat and sigma_hat anchored to full-sample stats (no strong/sustained regime shift or lost-shipment signal to warrant adjustments). This balances service level (high profit vs stockouts) against holding cost by relying on OR's built-in formula.
 
 Carry-over insight: (empty)
 
@@ -1789,20 +1789,20 @@ Period 41 (Period_41) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 238.25
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 35.64
-  Total inventory (on-hand + in-transit): 360
+  mu_hat method: default, computed mu_hat = 381.89
+  sigma_hat method: default, computed sigma_hat = 80.51
+  Total inventory (on-hand + in-transit): 455
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 296.87
-  Cap value: 73.87
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 514.31
+  Cap value: 135.60
+  Order (capped): 60
+  Order (uncapped): 60
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 60
   }
 }
 ======================================================================
@@ -1814,14 +1814,14 @@ Period 41 (Period_41) Demand: {
 }
 
 === Period 41 Summary ===
-chips(Regular): ordered=0, arrived=0, starting on-hand inventory=164, demand=36, sold=36, ending on-hand inventory=128
-Daily Profit: $684.00, Daily Holding Cost: $128.00
-Daily Reward (R_t): $556.00
+chips(Regular): ordered=60, arrived=58 units (ordered on Period 37, lead_time was 4 periods), starting on-hand inventory=273, demand=36, sold=36, ending on-hand inventory=237
+Daily Profit: $684.00, Daily Holding Cost: $237.00
+Daily Reward (R_t): $447.00
 
 Period 42 (Period_42) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_42: confirmed actual lead time = 4 (multiple concluded arrivals at 4). Historical demand samples show a lower regime since Period_10 (already recorded). Current on-hand=128 + in-transit=196 = 324 units, which is below the default forecasted (1+L)\xd7mean demand (5\xd7109=545), so replenishment is needed. I use L=default (promised 4) and default demand/volatility calculations so the OR engine computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples; this leverages the confirmed lead time and historical sample mean while letting the backend apply its capped ordering to balance profit vs holding cost.
+Period 42. Demand history shows stable behavior with many concluded orders at lead_time=4; recent on-hand=237 and in-transit=242. No evidence of a sustained demand regime shift or lost shipments (arrivals consistently match orders with 4-period lag), so keep promised lead time and use default demand/volatility estimates (backend will compute (1+L)\xd7mean and sqrt(1+L)\xd7std using all samples). This balances high profit vs low holding cost by letting OR compute the base-stock that already covers review+lead period.
 
 Carry-over insight: (empty)
 
@@ -1835,18 +1835,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 377.50
   sigma_hat method: default, computed sigma_hat = 80.71
-  Total inventory (on-hand + in-transit): 324
+  Total inventory (on-hand + in-transit): 479
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 510.26
   Cap value: 134.87
-  Order (capped): 135
-  Order (uncapped): 187
+  Order (capped): 32
+  Order (uncapped): 32
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 135
+    "chips(Regular)": 32
   }
 }
 ======================================================================
@@ -1858,14 +1858,14 @@ Period 42 (Period_42) Demand: {
 }
 
 === Period 42 Summary ===
-chips(Regular): ordered=135, arrived=0, starting on-hand inventory=128, demand=59, sold=59, ending on-hand inventory=69
-Daily Profit: $1121.00, Daily Holding Cost: $69.00
-Daily Reward (R_t): $1052.00
+chips(Regular): ordered=32, arrived=60 units (ordered on Period 38, lead_time was 4 periods), starting on-hand inventory=297, demand=59, sold=59, ending on-hand inventory=238
+Daily Profit: $1121.00, Daily Holding Cost: $238.00
+Daily Reward (R_t): $883.00
 
 Period 43 (Period_43) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_43 context: on-hand=69, in-transit=331. Historical concluded arrivals consistently show actual lead time = 4 (confirmed earlier), and a sustained demand regime drop starting at Period 10 (lower mean since Period 10). To keep the OR engine responsive to the lower, sustained post-Period-10 demand, I use recent_N demand estimates over the current low-demand regime. Regime length since Period 10 is >20, so N=20 (rule: N = min(regime_length,20)). L: use default (promised 4). mu_hat: recent_N with N=20 to reflect the lower recent average demand across the review+lead horizon. sigma_hat: recent_N with N=20 to capture recent demand volatility. These choices reduce target base-stock versus early high-demand periods, lowering holding costs while preserving service given current pipeline (331 units) and confirmed LT=4.
+Period 43: on-hand=238, in-transit=214. Historical concluded arrivals consistently show lead time = 4. Demand samples (periods 1\u20135) used by default estimator. Profit/holding imply a high service target (q\u22480.95); therefore use promised lead time and default mu_hat/sigma_hat so the OR backend applies (1+L) coverage and the built-in z* calibration. No strong evidence of lost shipments or recent demand regime shift\u2014stick with defaults.
 
 Carry-over insight: (empty)
 
@@ -1877,20 +1877,20 @@ Period 43 (Period_43) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 239.25
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 36.35
-  Total inventory (on-hand + in-transit): 400
+  mu_hat method: default, computed mu_hat = 375.74
+  sigma_hat method: default, computed sigma_hat = 80.01
+  Total inventory (on-hand + in-transit): 452
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 299.04
-  Cap value: 74.59
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 507.35
+  Cap value: 134.01
+  Order (capped): 56
+  Order (uncapped): 56
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 56
   }
 }
 ======================================================================
@@ -1902,14 +1902,14 @@ Period 43 (Period_43) Demand: {
 }
 
 === Period 43 Summary ===
-chips(Regular): ordered=0, arrived=59 units (ordered on Period 39, lead_time was 4 periods), starting on-hand inventory=128, demand=48, sold=48, ending on-hand inventory=80
-Daily Profit: $912.00, Daily Holding Cost: $80.00
-Daily Reward (R_t): $832.00
+chips(Regular): ordered=56, arrived=82 units (ordered on Period 39, lead_time was 4 periods), starting on-hand inventory=320, demand=48, sold=48, ending on-hand inventory=272
+Daily Profit: $912.00, Daily Holding Cost: $272.00
+Daily Reward (R_t): $640.00
 
 Period 44 (Period_44) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_44: lead time repeatedly observed as 4 periods in concluded history; recent demand history shows no new sustained regime shift. Current position: on-hand=80, in-transit=272 (healthy pipeline). Given high service target implied by profit/(profit+holding)=19/20=0.95 and confirmed LT=4, use defaults so the OR backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from full sample history. This keeps policy aligned with observed LT and overall demand stats while avoiding overfitting to short-term noise.
+Period 44. Demand history (samples P1\u2013P5) shows mean ~109 units; lead time has been repeatedly confirmed as 4 periods in past concludes. Current on-hand=272, in-transit=188 \u2014 pipeline appears healthy and there is no evidence of lost shipments or a demand regime change. Use default lead time (promised 4) so OR backend applies its (1+L) coverage formula correctly. Use default mu_hat and sigma_hat so the backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples; this avoids overreacting to noise given no sustained changepoint. These settings bias the OR engine toward maintaining service while letting it cap orders via its cap constraint to limit holding cost exposure.
 
 Carry-over insight: (empty)
 
@@ -1923,18 +1923,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 372.92
   sigma_hat method: default, computed sigma_hat = 79.64
-  Total inventory (on-hand + in-transit): 352
+  Total inventory (on-hand + in-transit): 460
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 503.91
   Cap value: 133.17
-  Order (capped): 134
-  Order (uncapped): 152
+  Order (capped): 44
+  Order (uncapped): 44
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 134
+    "chips(Regular)": 44
   }
 }
 ======================================================================
@@ -1946,14 +1946,14 @@ Period 44 (Period_44) Demand: {
 }
 
 === Period 44 Summary ===
-chips(Regular): ordered=134, arrived=137 units (ordered on Period 40, lead_time was 4 periods), starting on-hand inventory=217, demand=42, sold=42, ending on-hand inventory=175
-Daily Profit: $798.00, Daily Holding Cost: $175.00
-Daily Reward (R_t): $623.00
+chips(Regular): ordered=44, arrived=40 units (ordered on Period 40, lead_time was 4 periods), starting on-hand inventory=312, demand=42, sold=42, ending on-hand inventory=270
+Daily Profit: $798.00, Daily Holding Cost: $270.00
+Daily Reward (R_t): $528.00
 
 Period 45 (Period_45) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_45: on-hand=175, in-transit=269. Historical concluded messages consistently confirm actual lead time = 4. Demand samples provided (Periods 1-5) show moderate mean; no new sustained changepoint detected. I choose default lead time (use promised L=4) to align with confirmed observations and keep OR engine assumptions. Use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples; this balances service level vs holding cost given high on-hand + in-transit inventory and prevents overreacting to short-term fluctuation or isolated missing arrivals.
+Period 45. On-hand=270, In-transit=192. Historical conclude messages consistently show actual lead time = 4 (no sign of lost shipments), so use promised/default lead time. Pipeline appears reliable; no sustained demand regime shift detected. Use default methods so OR backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from full sample history\u2014this leverages the engine's built-in (L+1) coverage and statistical safety stock calculation to balance service level vs holding cost.
 
 Carry-over insight: (empty)
 
@@ -1967,18 +1967,18 @@ chips(Regular):
   L method: default, computed L = 4.00
   mu_hat method: default, computed mu_hat = 369.59
   sigma_hat method: default, computed sigma_hat = 79.49
-  Total inventory (on-hand + in-transit): 444
+  Total inventory (on-hand + in-transit): 462
   Critical fractile q = 0.9500, z* = 1.6449
   Base stock = 500.34
   Cap value: 132.39
-  Order (capped): 57
-  Order (uncapped): 57
+  Order (capped): 39
+  Order (uncapped): 39
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 57
+    "chips(Regular)": 39
   }
 }
 ======================================================================
@@ -1990,14 +1990,14 @@ Period 45 (Period_45) Demand: {
 }
 
 === Period 45 Summary ===
-chips(Regular): ordered=57, arrived=0, starting on-hand inventory=175, demand=57, sold=57, ending on-hand inventory=118
-Daily Profit: $1083.00, Daily Holding Cost: $118.00
-Daily Reward (R_t): $965.00
+chips(Regular): ordered=39, arrived=60 units (ordered on Period 41, lead_time was 4 periods), starting on-hand inventory=330, demand=57, sold=57, ending on-hand inventory=273
+Daily Profit: $1083.00, Daily Holding Cost: $273.00
+Daily Reward (R_t): $810.00
 
 Period 46 (Period_46) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_46. On-hand=118, in-transit=326. Historical concluded lead times consistently 4 periods; demand samples provided (118,124,116,96,91) show no recent sustained regime change beyond the previously recorded shift. Use promised/default lead time so OR backend retains standard L=4. Use default demand and volatility aggregation so mu_hat=(1+L)*mean(all samples) and sigma_hat=sqrt(1+L)*std(all samples). This keeps target base-stock sized to cover the (L+1) review+lead demand while avoiding aggressive up-weighting that would raise holding costs given already-large pipeline inventory.
+Period 46. Recent history shows stable observed lead time = 4 (confirmed historically) and no evidence of demand regime shift; on-hand=273, in-transit=171 with no flagged overdue shipments. Use promised/default lead time to align with confirmed observations. Set mu_hat and sigma_hat to default so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples (covers review+lead time per OR engine). This keeps orders conservative to balance high unit profit ($19) versus low holding cost ($1) and avoids overreacting to short-term noise.
 
 Carry-over insight: (empty)
 
@@ -2034,14 +2034,14 @@ Period 46 (Period_46) Demand: {
 }
 
 === Period 46 Summary ===
-chips(Regular): ordered=54, arrived=135 units (ordered on Period 42, lead_time was 4 periods), starting on-hand inventory=253, demand=15, sold=15, ending on-hand inventory=238
-Daily Profit: $285.00, Daily Holding Cost: $238.00
-Daily Reward (R_t): $47.00
+chips(Regular): ordered=54, arrived=32 units (ordered on Period 42, lead_time was 4 periods), starting on-hand inventory=305, demand=15, sold=15, ending on-hand inventory=290
+Daily Profit: $285.00, Daily Holding Cost: $290.00
+Daily Reward (R_t): $-5.00
 
 Period 47 (Period_47) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_47: on-hand=238, in-transit=245. Historical concludes consistently show actual lead time=4 (confirmed multiple times). Demand has been in a lower regime since Period_10 (carry-over insight) and recent demands (Periods 42-46 = 59,48,42,57,15) average ~44.2. I use promised/default lead time to align with repeated confirmations. For mu_hat and sigma_hat I use recent_N with N=5 to capture the current low-demand regime and recent volatility; this produces (1+L)-scaled forecast anchored to the last 5 observed demands and a matching recent volatility for the OR engine to size orders conservatively given high on-hand + in-transit.
+Period 47: on-hand=290, in-transit=193. Historical concluded arrivals consistently show lead time=4. Recent demands (history) are stable versus initial samples; no sustained regime shift detected. In-transit contains older orders but concluded history shows timely 4-period arrivals, so use promised/default lead time. Use default mu_hat and sigma_hat so backend applies (1+L)\xd7mean and sqrt(1+L)\xd7std across all samples\u2014this balances service level (high profit) against holding cost without overreacting to short-term noise.
 
 Carry-over insight: (empty)
 
@@ -2053,20 +2053,20 @@ Period 47 (Period_47) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=5, computed mu_hat = 221.00
-  sigma_hat method: recent_N, N=5, computed sigma_hat = 39.60
+  mu_hat method: default, computed mu_hat = 362.16
+  sigma_hat method: default, computed sigma_hat = 80.19
   Total inventory (on-hand + in-transit): 483
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 286.14
-  Cap value: 73.33
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 494.06
+  Cap value: 131.42
+  Order (capped): 12
+  Order (uncapped): 12
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 12
   }
 }
 ======================================================================
@@ -2078,14 +2078,14 @@ Period 47 (Period_47) Demand: {
 }
 
 === Period 47 Summary ===
-chips(Regular): ordered=0, arrived=0, starting on-hand inventory=238, demand=74, sold=74, ending on-hand inventory=164
-Daily Profit: $1406.00, Daily Holding Cost: $164.00
-Daily Reward (R_t): $1242.00
+chips(Regular): ordered=12, arrived=56 units (ordered on Period 43, lead_time was 4 periods), starting on-hand inventory=346, demand=74, sold=74, ending on-hand inventory=272
+Daily Profit: $1406.00, Daily Holding Cost: $272.00
+Daily Reward (R_t): $1134.00
 
 Period 48 (Period_48) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_48: observed on-hand=164, in-transit=245. Historical concluded arrivals consistently show lead_time=4 (confirmed multiple times), so use calculated lead time. Demand has been in the lower regime since Period_10 (carry-over insight) and recent periods show lower mean/volatility; to reflect current demand I set mu_hat and sigma_hat using recent_N with N=20 to focus the forecast on the most recent regime and reduce overweighting older higher-demand history. No new lost shipments detected.
+Period 48. Demand history shows stable observations; confirmed lead time = 4 (carry-over). Current on-hand=272, in-transit=149 \u2014 pipeline appears healthy, no new lost shipments flagged. Use promised/confirmed lead time and full-sample statistics so OR backend's (1+L) coverage is applied consistently. Selecting default L keeps L=4; default mu_hat and sigma_hat let backend compute (1+L)\xd7mean and sqrt(1+L)\xd7std from all samples, balancing service level (high profit) against holding cost.
 
 Carry-over insight: (empty)
 
@@ -2096,21 +2096,21 @@ Period 48 (Period_48) LLM->OR Backend Computation (CAPPED POLICY):
 ======================================================================
 
 chips(Regular):
-  L method: calculate, observed_samples=817, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 245.25
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 40.94
-  Total inventory (on-hand + in-transit): 409
+  L method: default, computed L = 4.00
+  mu_hat method: default, computed mu_hat = 362.31
+  sigma_hat method: default, computed sigma_hat = 79.40
+  Total inventory (on-hand + in-transit): 421
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 312.59
-  Cap value: 79.17
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 492.91
+  Cap value: 130.87
+  Order (capped): 72
+  Order (uncapped): 72
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 72
   }
 }
 ======================================================================
@@ -2122,14 +2122,14 @@ Period 48 (Period_48) Demand: {
 }
 
 === Period 48 Summary ===
-chips(Regular): ordered=0, arrived=134 units (ordered on Period 44, lead_time was 4 periods), starting on-hand inventory=298, demand=72, sold=72, ending on-hand inventory=226
-Daily Profit: $1368.00, Daily Holding Cost: $226.00
-Daily Reward (R_t): $1142.00
+chips(Regular): ordered=72, arrived=44 units (ordered on Period 44, lead_time was 4 periods), starting on-hand inventory=316, demand=72, sold=72, ending on-hand inventory=244
+Daily Profit: $1368.00, Daily Holding Cost: $244.00
+Daily Reward (R_t): $1124.00
 
 Period 49 (Period_49) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_49: on-hand=226, in-transit=111. Carry-over history confirms actual lead time=4 (multiple observations). Demand has been in a lower regime since Period_10; recent regime length ~39 periods. To align the OR base-stock horizon with the sustained lower-demand regime, I use recent_N (N=20) for both mu_hat and sigma_hat (cap N at 20 per rules) so the backend forecasts (1+L)*mean and sqrt(1+L)*std using the most recent 20 demand samples from the current regime. I keep L=default (promised lead time=4) since concluded messages consistently confirm 4. This balances service level (captures recent lower mean and variability) against holding cost by shrinking target inventory to the current demand regime.
+Period 49: on-hand=244, in-transit=177. Historical conclude messages consistently confirm actual lead time = 4 periods. Demand shows no recent sustained regime shift. To avoid overfitting noisy variation and because in-transit may include delayed/lost orders, use default lead time and default demand estimates so backend computes \u03bc\u0302 and \u03c3\u0302 using all samples and promised L=4. This balances service level with holding cost given high on-hand inventory.
 
 Carry-over insight: (empty)
 
@@ -2141,20 +2141,20 @@ Period 49 (Period_49) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 255.50
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 41.31
-  Total inventory (on-hand + in-transit): 337
+  mu_hat method: default, computed mu_hat = 362.26
+  sigma_hat method: default, computed sigma_hat = 78.63
+  Total inventory (on-hand + in-transit): 421
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 323.45
-  Cap value: 81.49
-  Order (capped): 0
-  Order (uncapped): 0
+  Base stock = 491.61
+  Cap value: 130.30
+  Order (capped): 71
+  Order (uncapped): 71
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 0
+    "chips(Regular)": 71
   }
 }
 ======================================================================
@@ -2166,14 +2166,14 @@ Period 49 (Period_49) Demand: {
 }
 
 === Period 49 Summary ===
-chips(Regular): ordered=0, arrived=57 units (ordered on Period 45, lead_time was 4 periods), starting on-hand inventory=283, demand=44, sold=44, ending on-hand inventory=239
+chips(Regular): ordered=71, arrived=39 units (ordered on Period 45, lead_time was 4 periods), starting on-hand inventory=283, demand=44, sold=44, ending on-hand inventory=239
 Daily Profit: $836.00, Daily Holding Cost: $239.00
 Daily Reward (R_t): $597.00
 
 Period 50 (Period_50) LLM->OR Decision:
 ======================================================================
 LLM Rationale:
-Period_50. Inventory: on-hand=239, in-transit=54. Historical concludes confirm actual lead time = 4 periods (many P->P+4 observations). Demand experienced a sustained downshift since Period 10 (carry-over note) \u2014 recent periods show lower, more stable demand. Because the environment is in the lower-demand regime and we must target current demand, I set L to default (promised lead time = 4). I set mu_hat and sigma_hat using recent_N with N=20 to capture the most recent 20-period demand statistics (reflecting the current lower-demand regime and recent volatility). This keeps the base-stock and cap calibrated to recent demand so the OR backend avoids over-ordering into already-high on-hand while still supporting a high service level given profit/holding cost (q\u22480.95).
+Period 50: lead time has been consistently observed as 4 periods in concluded history. On-hand = 239, In-transit = 209; no overdue/unconcluded shipments visible in recent concludes, so pipeline appears reliable. Profit $19 vs holding $1 implies high service bias; use OR defaults which already account for (1+L) coverage. Therefore keep L as promised, and use default mu_hat and sigma_hat so backend computes (1+L)\xd7mean and sqrt(1+L)\xd7std from historical samples.
 
 Carry-over insight: (empty)
 
@@ -2185,20 +2185,20 @@ Period 50 (Period_50) LLM->OR Backend Computation (CAPPED POLICY):
 
 chips(Regular):
   L method: default, computed L = 4.00
-  mu_hat method: recent_N, N=20, computed mu_hat = 252.50
-  sigma_hat method: recent_N, N=20, computed sigma_hat = 41.37
-  Total inventory (on-hand + in-transit): 293
+  mu_hat method: default, computed mu_hat = 359.63
+  sigma_hat method: default, computed sigma_hat = 78.37
+  Total inventory (on-hand + in-transit): 448
   Critical fractile q = 0.9500, z* = 1.6449
-  Base stock = 320.55
-  Cap value: 80.94
-  Order (capped): 28
-  Order (uncapped): 28
+  Base stock = 488.53
+  Cap value: 129.57
+  Order (capped): 41
+  Order (uncapped): 41
 
 ======================================================================
 Final Order Action:
 {
   "action": {
-    "chips(Regular)": 28
+    "chips(Regular)": 41
   }
 }
 ======================================================================
@@ -2210,7 +2210,7 @@ Period 50 (Period_50) Demand: {
 }
 
 === Period 50 Summary ===
-chips(Regular): ordered=28, arrived=54 units (ordered on Period 46, lead_time was 4 periods), starting on-hand inventory=293, demand=59, sold=59, ending on-hand inventory=234
+chips(Regular): ordered=41, arrived=54 units (ordered on Period 46, lead_time was 4 periods), starting on-hand inventory=293, demand=59, sold=59, ending on-hand inventory=234
 Daily Profit: $1121.00, Daily Holding Cost: $234.00
 Daily Reward (R_t): $887.00
 
@@ -2221,7 +2221,7 @@ Daily Reward (R_t): $887.00
 Per-Item Statistics:
 
 chips(Regular) (chips(Regular)):
-  Ordered: 3195, Sold: 2933, Ending: 234
+  Ordered: 3363, Sold: 2933, Ending: 234
   Profit/unit: $19.0, Holding: $1.0/unit/period
   Total Profit: $55727.0
 
@@ -2241,8 +2241,8 @@ Period 10 (Period_10): Profit=$2774.00, Holding=$46.00, Reward=$2728.00
 Period 11 (Period_11): Profit=$1463.00, Holding=$31.00, Reward=$1432.00
 Period 12 (Period_12): Profit=$1558.00, Holding=$103.00, Reward=$1455.00
 Period 13 (Period_13): Profit=$1729.00, Holding=$111.00, Reward=$1618.00
-Period 14 (Period_14): Profit=$1368.00, Holding=$203.00, Reward=$1165.00
-Period 15 (Period_15): Profit=$2090.00, Holding=$242.00, Reward=$1848.00
+Period 14 (Period_14): Profit=$1368.00, Holding=$193.00, Reward=$1175.00
+Period 15 (Period_15): Profit=$2090.00, Holding=$241.00, Reward=$1849.00
 Period 16 (Period_16): Profit=$1558.00, Holding=$228.00, Reward=$1330.00
 Period 17 (Period_17): Profit=$1273.00, Holding=$235.00, Reward=$1038.00
 Period 18 (Period_18): Profit=$1330.00, Holding=$249.00, Reward=$1081.00
@@ -2256,26 +2256,26 @@ Period 25 (Period_25): Profit=$627.00, Holding=$410.00, Reward=$217.00
 Period 26 (Period_26): Profit=$931.00, Holding=$395.00, Reward=$536.00
 Period 27 (Period_27): Profit=$1026.00, Holding=$386.00, Reward=$640.00
 Period 28 (Period_28): Profit=$589.00, Holding=$392.00, Reward=$197.00
-Period 29 (Period_29): Profit=$1064.00, Holding=$336.00, Reward=$728.00
-Period 30 (Period_30): Profit=$418.00, Holding=$314.00, Reward=$104.00
-Period 31 (Period_31): Profit=$1330.00, Holding=$244.00, Reward=$1086.00
-Period 32 (Period_32): Profit=$874.00, Holding=$214.00, Reward=$660.00
-Period 33 (Period_33): Profit=$589.00, Holding=$329.00, Reward=$260.00
-Period 34 (Period_34): Profit=$475.00, Holding=$304.00, Reward=$171.00
-Period 35 (Period_35): Profit=$1045.00, Holding=$249.00, Reward=$796.00
-Period 36 (Period_36): Profit=$1159.00, Holding=$188.00, Reward=$971.00
-Period 37 (Period_37): Profit=$1197.00, Holding=$125.00, Reward=$1072.00
-Period 38 (Period_38): Profit=$1577.00, Holding=$184.00, Reward=$1393.00
+Period 29 (Period_29): Profit=$1064.00, Holding=$363.00, Reward=$701.00
+Period 30 (Period_30): Profit=$418.00, Holding=$368.00, Reward=$50.00
+Period 31 (Period_31): Profit=$1330.00, Holding=$341.00, Reward=$989.00
+Period 32 (Period_32): Profit=$874.00, Holding=$343.00, Reward=$531.00
+Period 33 (Period_33): Profit=$589.00, Holding=$338.00, Reward=$251.00
+Period 34 (Period_34): Profit=$475.00, Holding=$363.00, Reward=$112.00
+Period 35 (Period_35): Profit=$1045.00, Holding=$325.00, Reward=$720.00
+Period 36 (Period_36): Profit=$1159.00, Holding=$331.00, Reward=$828.00
+Period 37 (Period_37): Profit=$1197.00, Holding=$309.00, Reward=$888.00
+Period 38 (Period_38): Profit=$1577.00, Holding=$251.00, Reward=$1326.00
 Period 39 (Period_39): Profit=$836.00, Holding=$227.00, Reward=$609.00
-Period 40 (Period_40): Profit=$1197.00, Holding=$164.00, Reward=$1033.00
-Period 41 (Period_41): Profit=$684.00, Holding=$128.00, Reward=$556.00
-Period 42 (Period_42): Profit=$1121.00, Holding=$69.00, Reward=$1052.00
-Period 43 (Period_43): Profit=$912.00, Holding=$80.00, Reward=$832.00
-Period 44 (Period_44): Profit=$798.00, Holding=$175.00, Reward=$623.00
-Period 45 (Period_45): Profit=$1083.00, Holding=$118.00, Reward=$965.00
-Period 46 (Period_46): Profit=$285.00, Holding=$238.00, Reward=$47.00
-Period 47 (Period_47): Profit=$1406.00, Holding=$164.00, Reward=$1242.00
-Period 48 (Period_48): Profit=$1368.00, Holding=$226.00, Reward=$1142.00
+Period 40 (Period_40): Profit=$1197.00, Holding=$215.00, Reward=$982.00
+Period 41 (Period_41): Profit=$684.00, Holding=$237.00, Reward=$447.00
+Period 42 (Period_42): Profit=$1121.00, Holding=$238.00, Reward=$883.00
+Period 43 (Period_43): Profit=$912.00, Holding=$272.00, Reward=$640.00
+Period 44 (Period_44): Profit=$798.00, Holding=$270.00, Reward=$528.00
+Period 45 (Period_45): Profit=$1083.00, Holding=$273.00, Reward=$810.00
+Period 46 (Period_46): Profit=$285.00, Holding=$290.00, Reward=$-5.00
+Period 47 (Period_47): Profit=$1406.00, Holding=$272.00, Reward=$1134.00
+Period 48 (Period_48): Profit=$1368.00, Holding=$244.00, Reward=$1124.00
 Period 49 (Period_49): Profit=$836.00, Holding=$239.00, Reward=$597.00
 Period 50 (Period_50): Profit=$1121.00, Holding=$234.00, Reward=$887.00
 
@@ -2283,10 +2283,10 @@ Period 50 (Period_50): Profit=$1121.00, Holding=$234.00, Reward=$887.00
 === TOTAL SUMMARY ===
 ======================================================================
 Total Profit from Sales: $55727.00
-Total Holding Cost: $9998.00
+Total Holding Cost: $11781.00
 
->>> Total Reward (LLM->OR Strategy): $45729.00 <<<
-VM Final Reward: 45729.00
+>>> Total Reward (LLM->OR Strategy): $43946.00 <<<
+VM Final Reward: 43946.00
 ======================================================================
 
 
