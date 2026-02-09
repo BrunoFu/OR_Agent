@@ -4,11 +4,11 @@
   <img alt="TextArena logo" src="/docs/ta_white.svg" width="25%" height="25%">
 </picture>
   
-A suite of 100+ {single,two,multi}-Player texted based games for benchmarking and training of LLMs.
+A suite of 100+ {single,two,multi}-Player text-based games for benchmarking and training of LLMs.
 
 <h3>
 
-[Play](https://textarena.ai) | [Leaderboard](https://textarena.ai/leaderboard) | [Games](https://github.com/LeonGuertler/TextArena/blob/main/textarena/envs/README.md) | [Examples](https://github.com/LeonGuertler/TextArena/tree/main/examples)
+[Play](https://textarena.ai) | [Leaderboard](https://textarena.ai/leaderboard) | [Games](https://github.com/LeonGuertler/TextArena/blob/main/textarena/envs/README.md) | [Examples](https://github.com/LeonGuertler/TextArena/tree/main/examples) | [VM Benchmark](#benchmark-test-environment)
 
 </h3>
 
@@ -32,7 +32,7 @@ A suite of 100+ {single,two,multi}-Player texted based games for benchmarking an
 
 
 ## Introduction
-**TextArena** is a flexible and extensible framework for training, evaluating, and benchmarking models in text-based games. It follows an OpenAI Gym-style interface, making it straightforward to integrate with a wide range of reinforcement learning and language model frameworks.
+**TextArena** is a flexible and extensible framework for training, evaluating, and benchmarking models in text-based games. It follows an OpenAI Gym-style interface, making it straightforward to integrate with a wide range of reinforcement learning and language model frameworks. The repository also includes a **benchmark test environment** for Vending Machine (VM) inventory control (OR baseline, LLM-only, and LLM↔OR hybrid strategies); see [Benchmark Test Environment](#benchmark-test-environment).
 
 
 ## Getting Started
@@ -131,6 +131,85 @@ print(f"VM Total Reward: ${rewards[0]:.2f}")
 - **Realistic supply chain mechanics** with order pipelines and delivery delays
 
 
+## Benchmark Test Environment
+
+This repository includes a **benchmark test environment** for evaluating VM (Vending Machine) control strategies: OR baseline, LLM-only, and hybrid (LLM↔OR). The test data, scripts, and leaderboard/website live under `examples/`.
+
+### Test Dataset (`examples/benchmark_for_test`)
+
+- **`real_trajectory/`** – Real demand trajectories (e.g. H&M-style article IDs). Subfolders:
+  - `lead_time_0/`, `lead_time_4/`, `lead_time_stochastic/` (by lead-time scenario).
+  - Each **instance** is a directory with `train.csv` (historical demand) and `test.csv` (evaluation periods).
+- **`synthetic_trajectory/`** – Synthetic demand instances with similar structure.
+
+Each instance directory must contain:
+
+- **`train.csv`** – Historical demand: columns like `exact_dates_<item_id>`, `demand_<item_id>`.
+- **`test.csv`** – Test horizon: same date/demand columns plus per-item `description_<item_id>`, `lead_time_<item_id>`, `profit_<item_id>`, `holding_cost_<item_id>` (lead time can be integer or `inf`).
+
+Demand is given per 14-day period; the VM agent (player 0) orders each period, and demand (player 1) is read from the CSV.
+
+### Strategies (Four Scripts + Baseline)
+
+| Script | Description |
+|--------|-------------|
+| **`or_csv_demo.py`** | OR baseline: base-stock policy (μ̂, σ̂ from history); demand from CSV. |
+| **`llm_csv_demo.py`** | LLM-only: one LLM makes ordering decisions from observations; demand from CSV. |
+| **`llm_to_or_csv_demo.py`** | LLM→OR: LLM proposes (L, μ̂, σ̂); backend computes orders with the OR formula. |
+| **`or_to_llm_csv_demo.py`** | OR→LLM: OR recommends orders; LLM sees recommendations and makes final decisions. |
+| **`perfect_score.py`** | Baseline: theoretical max profit (sum of demand × profit), no lead time or holding cost. |
+
+All run with CSV-driven demand; LLM scripts need `--real-instance-train` (path to `train.csv`) and an API key (`OPENAI_API_KEY` for `gpt*`, `OPENROUTER_API_KEY` for OpenRouter models).
+
+### Running Benchmarks
+
+**Single instance (one strategy):**
+
+```bash
+# OR baseline (no API key)
+python examples/or_csv_demo.py --demand-file examples/benchmark_for_test/real_trajectory/lead_time_stochastic/253448001/test.csv --real-instance-train examples/benchmark_for_test/real_trajectory/lead_time_stochastic/253448001/train.csv --promised-lead-time 2
+
+# LLM (set OPENAI_API_KEY or OPENROUTER_API_KEY)
+python examples/llm_csv_demo.py --demand-file .../test.csv --real-instance-train .../train.csv --promised-lead-time 2 --model google/gemini-3-flash-preview
+```
+
+**All strategies on one instance** (writes `benchmark_results.json` in that instance dir):
+
+```bash
+python examples/benchmark_all_strategies.py --directory examples/benchmark_for_test/real_trajectory/lead_time_stochastic/253448001 --model x-ai/grok-4.1-fast
+```
+
+Promised lead time can be set with `--promised-lead-time` or auto-detected from the path (`lead_time_0` → 0, `lead_time_4` → 4, `lead_time_stochastic` → 2).
+
+**Batch over many instances:**
+
+```bash
+python examples/run_batch_benchmark.py --base-dir examples/benchmark_for_test/real_trajectory/lead_time_stochastic --model x-ai/grok-4.1-fast --skip-completed
+```
+
+This discovers all subdirs that contain both `test.csv` and `train.csv`, runs `benchmark_all_strategies` on each (optionally skipping instances that already have full `benchmark_results.json`), and can run multiple instances in parallel.
+
+### Leaderboard and Benchmark Website
+
+- **Leaderboard data** is built by aggregating `benchmark_results.json` from `*_bench` directories (e.g. `grok-4.1-fast_bench`, `gpt-5-mini_bench`). Each such directory typically mirrors the instance tree of `benchmark_for_test` and adds per-instance `benchmark_results.json` (and logs) produced by the benchmark scripts.
+- **Build stats** (mean ratio to perfect, optionally by family/lead time):
+
+  ```bash
+  python examples/benchmark_website/build_stats.py
+  ```
+
+  This writes `examples/benchmark_website/data/leaderboard.json` and `_data/leaderboard.yml`.
+
+- **Detail pages** for the static site:
+
+  ```bash
+  cd examples/benchmark_website && python generate_detail_pages.py
+  ```
+
+- **Serve the site** (e.g. `python -m http.server 8000` in `examples/benchmark_website`) and open `index.html` or `leaderboard.html`.
+
+See `examples/benchmark_website/README.md` and `examples/benchmark_leaderboard/README.md` for more detail.
+
 
 ## Citation [![arXiv](https://img.shields.io/badge/arXiv-2504.11442-b31b1b.svg)](https://arxiv.org/abs/2504.11442)
 
@@ -149,10 +228,5 @@ If you use **TextArena** in your research, please cite:
 ```
 
 
-
-## How to Contribute:
-If you have any questions at all, feel free to reach out on discord. The below issues are great starting points if you want to contribute:
-- Transfer the 'How to Contribute' from here to individual issues
-- Make RushHour board generation algorithmic
-- extend Fifteenpuzzel to arbitrary sizes
-- Add a nice end-of-game screen to the SimpleRenderWrapper visualizations
+// End of Selection
+```
