@@ -6,6 +6,7 @@ from statistics import mean
 ROOT = Path(__file__).resolve().parent.parent  # repo root
 EXAMPLES_DIR = ROOT / "examples"
 DATA_DIR = ROOT / "_data"
+JSON_DATA_DIR = ROOT / "data"  # For static HTML site
 
 
 BENCH_DIR_SUFFIX = "_bench"
@@ -170,6 +171,14 @@ def main():
 
     leaderboard_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Wrote {leaderboard_path} with {len(all_rows)} rows.")
+    
+    # Also write JSON for static HTML site
+    JSON_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    json_path = JSON_DATA_DIR / "leaderboard.json"
+    json_data = {"methods": all_rows}
+    with json_path.open("w", encoding="utf-8") as f:
+        json.dump(json_data, f, indent=2, ensure_ascii=False)
+    print(f"Wrote {json_path} with {len(all_rows)} methods.")
 
 
 if __name__ == "__main__":
