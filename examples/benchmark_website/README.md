@@ -37,6 +37,7 @@ python build_stats.py
 This will:
 - Scan all `*_bench` directories in `examples/`
 - Aggregate performance metrics from `benchmark_results.json` files
+- **Metric**: For each instance, negative `ratio_to_perfect` values are set to 0 before averaging (Section 4.2: prevents outliers from having outsize impact on average performance).
 - Generate `data/leaderboard.json` for the website
 - Also generate `_data/leaderboard.yml` at repo root (for backward compatibility)
 

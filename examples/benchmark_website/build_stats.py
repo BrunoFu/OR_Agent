@@ -96,6 +96,10 @@ def aggregate_for_bench(bench_dir: Path):
             ratio = res.get("ratio_to_perfect")
             if ratio is None:
                 continue
+            # Truncate negative ratios to 0 before averaging (Section 4.2: prevent
+            # outliers, e.g. one bad run with large negative profit, from having
+            # outsize impact on average performance).
+            ratio_truncated = max(0.0, ratio)
 
             m = all_methods.setdefault(
                 method,
@@ -105,14 +109,14 @@ def aggregate_for_bench(bench_dir: Path):
                     "by_lead": {},
                 },
             )
-            m["ratios"].append(ratio)
+            m["ratios"].append(ratio_truncated)
 
             if family:
                 fam_bucket = m["by_family"].setdefault(family, [])
-                fam_bucket.append(ratio)
+                fam_bucket.append(ratio_truncated)
             if lead:
                 lead_bucket = m["by_lead"].setdefault(lead, [])
-                lead_bucket.append(ratio)
+                lead_bucket.append(ratio_truncated)
 
     rows = []
     for method, agg in all_methods.items():
