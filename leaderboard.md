@@ -10,13 +10,17 @@ This page summarizes performance of OR baselines, LLM policies, and OR–LLM hyb
 
 The primary evaluation metric is **cumulative reward** over the test period. We also report **normalized reward**, defined as the ratio between actual reward and a perfect‑foresight upper bound.
 
-## Overall leaderboard (placeholder)
+## Overall leaderboard
 
-| Rank | Method | LLM | Category | Normalized Reward | Reference |
-|------|--------|-----|----------|-------------------|-----------|
-| –    | Coming soon | – | – | – | – |
+The table below ranks all evaluated combinations of LLM and decision method by **average normalized reward** across all 1,320 benchmark instances. Higher is better, and 1.0 corresponds to the perfect‑foresight upper bound.
 
-We will populate this table once public baselines are finalized.
+| Rank | LLM | Method | Avg Normalized Reward | Details |
+|------|-----|--------|-----------------------|---------|
+{% assign rows = site.data.leaderboard.methods %}
+{% assign sorted = rows | sort: "mean_ratio" | reverse %}
+{% for row in sorted %}
+| {{ forloop.index }} | {{ row.llm_label }} | {{ row.method_label }} | {{ row.mean_ratio | round: 3 }} | [View]({{ '/leaderboard/' | append: row.llm_id | append: '/' | append: row.method_id | relative_url }}) |
+{% endfor %}
 
 ## Metric definition
 
@@ -45,23 +49,16 @@ NormalizedReward = Reward / PerfectScore
 
 This normalizes performance across instances with different demand scales and cost parameters.
 
-## Sub-leaderboards (planned)
+## Method-level breakdown (per LLM × method)
 
-We plan to provide separate tables for:
+For each row in the leaderboard, the detail page shows:
 
-- **Synthetic trajectories only**
-- **Real trajectories only**
-- **By lead‑time regime** (for example, `lead_time_0`, `lead_time_4`, `lead_time_stochastic`)
+- The underlying model name (for example, `google/gemini-3-flash-preview`).
+- Average normalized reward by dataset family:
+  - `synthetic_trajectory` (720 instances)
+  - `real_trajectory` (600 instances)
+- Average normalized reward by lead‑time setting:
+  - `lead_time_0`, `lead_time_4`, `lead_time_stochastic`
 
-These will reuse the same columns and metric definitions as the overall leaderboard.
-
-## Submitting results (to be finalized)
-
-Once the submission pipeline is ready, we will:
-
-- Specify a standard result file format (for example, CSV or JSON with per‑instance metrics).
-- Provide starter scripts in the [benchmark code repository](https://github.com/BrunoFu/OR_Agent).
-- Describe how to submit results (for example, GitHub pull request or email).
-
-For now, the leaderboard is a template waiting for finalized baseline results.
+In future iterations we can further extend these pages with per‑instance tables and links into raw `benchmark_results.json` files.
 
